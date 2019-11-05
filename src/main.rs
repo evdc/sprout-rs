@@ -1,8 +1,10 @@
 pub mod lexer;
 pub mod tokens;
+pub mod ast;
 
 use tokens::Token;
 use lexer::Lexer;
+use ast::ASTNode;
 
 fn main() {
     let input = "true and not false + foo + \"bar\" * 3";
