@@ -7,6 +7,19 @@ fn is_letter(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_'
 }
 
+fn lookup_keyword(s: &str) -> Token {
+    match s {
+        "true" => Token::LiteralBool(true),
+        "false" => Token::LiteralBool(false),
+
+        "and" => Token::And,
+        "or" => Token::Or,
+        "not" => Token::Not,
+
+        _ => Token::Name(s.to_string())
+    }
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a> {
     input: Peekable<Chars<'a>>
@@ -107,7 +120,7 @@ impl<'a> Lexer<'a> {
             Some(ch @ _) => {
                 if is_letter(ch) {
                     let name = self.read_name(ch);
-                    return Token::Name(name);
+                    lookup_keyword(&name)
                 } else if ch.is_numeric() {
                     let num = self.read_number(ch);
                     return Token::LiteralInt(num);
@@ -119,4 +132,32 @@ impl<'a> Lexer<'a> {
             None => Token::EOF
         }
     }
+}
+
+#[test]
+fn test_lexer() {
+    let input = "true and not false + foo * \"bar\" ^ 3";
+    let mut lex = Lexer::new(input);
+    let mut tokens = vec![];
+
+    loop {
+        let t = lex.next_token();
+        if t == Token::EOF {
+            break;
+        }
+        tokens.push(t)
+    }
+
+    assert_eq!(tokens, vec![
+        Token::LiteralBool(true),
+        Token::And,
+        Token::Not,
+        Token::LiteralBool(false),
+        Token::Plus,
+        Token::Name("foo".to_string()),
+        Token::Star,
+        Token::LiteralStr("bar".to_string()),
+        Token::Power,
+        Token::LiteralInt(3)
+    ])
 }
