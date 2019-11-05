@@ -21,6 +21,20 @@ impl<'a> Lexer<'a> {
         return self.input.next()
     }
 
+    fn consume(&mut self, expected: char) -> Option<char> {
+        let found = self.input.next();
+        match found {
+            Some(c) => {
+                if c == expected {
+                    self.input.next()
+                } else {
+                    panic!("Expected {}, found {}", expected, c)
+                }
+            },
+            None => panic!("Expected {}")
+        }
+    }
+
     fn peek_char(&mut self) -> Option<&char> {
         return self.input.peek()
     }
@@ -60,6 +74,18 @@ impl<'a> Lexer<'a> {
         return n.parse::<i32>().expect("Error parsing number")
     }
 
+    fn read_str(&mut self) -> String {
+        let mut s = String::new();
+        while let Some(c) = self.peek_char() {
+            if *c == '"' {           // escaped quotes, what are those?
+                self.advance();     // consume the closing "
+                break;
+            }
+            s.push(self.advance().expect("Unterminated string"));
+        }
+        return s;
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
@@ -69,6 +95,14 @@ impl<'a> Lexer<'a> {
             Some('-') => Token::Minus,
             Some('*') => Token::Star,
             Some('/') => Token::Slash,
+            Some('^') => Token::Power,
+            Some('(') => Token::LParen,
+            Some(')') => Token::RParen,
+
+            Some('"') => {
+                let s = self.read_str();
+                return Token::LiteralStr(s);
+            }
 
             Some(ch @ _) => {
                 if is_letter(ch) {

@@ -5,7 +5,7 @@ use tokens::Token;
 use lexer::Lexer;
 
 fn main() {
-    let input = "1 + 2 * 3";
+    let input = "1 + \"2 * 3\" * 4";
     let mut lex = Lexer::new(input);
 
     loop {
