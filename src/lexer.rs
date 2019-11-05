@@ -47,7 +47,7 @@ impl<'a> Lexer<'a> {
         return name;
     }
 
-    fn read_number(&mut self, ch: char) -> String {
+    fn read_number(&mut self, ch: char) -> i32 {
         let mut n = String::new();
         n.push(ch);
         while let Some(c) = self.peek_char() {
@@ -57,8 +57,7 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        // return n.parse::<i32>().expect("Error parsing number")
-        return n;
+        return n.parse::<i32>().expect("Error parsing number")
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -77,7 +76,7 @@ impl<'a> Lexer<'a> {
                     return Token::Name(name);
                 } else if ch.is_numeric() {
                     let num = self.read_number(ch);
-                    return Token::Literal(num);
+                    return Token::LiteralInt(num);
                 } else {
                     panic!("Illegal char")
                 }

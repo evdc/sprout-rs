@@ -1,7 +1,8 @@
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
     Name(String),
-    Literal(String),
+    LiteralStr(String),
+    LiteralInt(i32),
 
     Plus,
     Minus,
