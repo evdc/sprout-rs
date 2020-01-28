@@ -2,8 +2,8 @@ use crate::tokens::Token;
 
 #[derive(Debug, Eq)]
 pub struct ASTNode {
-    token: Token,
-    children: Vec<ASTNode>
+    pub token: Token,
+    pub children: Vec<ASTNode>
 }
 
 impl ASTNode {

@@ -1,8 +1,8 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
-    Name(String),
+    Word(String),
     LiteralStr(String),
-    LiteralInt(i32),
+    LiteralInt(i64),
     LiteralBool(bool),
 
     Plus,
@@ -18,6 +18,7 @@ pub enum Token {
     LParen,
     RParen,
 
-    EOF
+    EOF,
+    Illegal(char)
 }
 
