@@ -2,12 +2,15 @@ use crate::tokens::Token;
 use crate::ast::ASTNode;
 use crate::lexer::Lexer;
 
-type PrefixFnType = fn(&mut Parser, Token) -> ASTNode;
-type InfixFnType = fn(&mut Parser, Token, ASTNode, i32) -> ASTNode;
+type ParseResult = Result<ASTNode, ParseError>;
+type PrefixFnType = fn(&mut Parser, Token) -> ParseResult;
+type InfixFnType = fn(&mut Parser, Token, ASTNode, i32) -> ParseResult;
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
-    UnexpectedEndOfInput
+    UnexpectedEndOfInput,
+    NoPrefixFn(Token),
+    NoInfixFn(Token)
 }
 
 impl std::fmt::Display for ParseError {
@@ -30,31 +33,40 @@ struct ParseRule {
 }
 
 impl ParseRule {
-    fn prefix_fn(&self, parser: &mut Parser, token: Token) -> ASTNode {
-        (self.prefix_fn.expect(&format!("No prefix fn for {:?}", token)))(parser, token)
+    fn prefix_fn(&self, parser: &mut Parser, token: Token) -> ParseResult {
+        match self.prefix_fn {
+            None => Err(ParseError::NoPrefixFn(token)),
+            Some(f) => f(parser, token)
+        }
     }
 
-    fn infix_fn(&self, parser: &mut Parser, token: Token, left: ASTNode) -> ASTNode {
-        (self.infix_fn.expect(&format!("No infix fn for {:?}", token)))(parser, token, left, self.precedence)
+    fn infix_fn(&self, parser: &mut Parser, token: Token, left: ASTNode) -> ParseResult {
+        match self.infix_fn {
+            None => Err(ParseError::NoInfixFn(token)),
+            Some(f) => f(parser, token, left, self.precedence)
+        }
     }
 }
 
 
 // These functions take ownership of a Token and give it to an ASTNode
-fn literal(_parser: &mut Parser, token: Token) -> ASTNode {
-    ASTNode { token, children: vec![] }
+fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
+    Ok(ASTNode { token, children: vec![] })
 }
 
-fn unary_prefix(parser: &mut Parser, token: Token) -> ASTNode {
-    ASTNode { token, children: vec![parser.expression(100).unwrap()] }
+fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
+    let child = parser.expression(100)?;
+    Ok(ASTNode { token, children: vec![child] })
 }
 
-fn infix(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ASTNode {
-    ASTNode { token, children: vec![left, parser.expression(precedence).unwrap()] }
+fn infix(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ParseResult {
+    let right = parser.expression(precedence)?;
+    Ok(ASTNode { token, children: vec![left, right] })
 }
 
-fn infix_rassoc(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ASTNode {
-    ASTNode { token, children: vec![left, parser.expression(precedence - 1).unwrap()] }
+fn infix_rassoc(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ParseResult {
+    let right = parser.expression(precedence-1)?;
+    Ok(ASTNode { token, children: vec![left, right] })
 }
 
 fn get_parse_rule(token: &Token) -> ParseRule {
@@ -97,11 +109,11 @@ impl<'a> Parser<'a> {
     pub fn expression(&mut self, precedence: i32) -> Result<ASTNode, ParseError> {
         let mut token = self.advance();
 
-        let mut parsed_so_far = get_parse_rule(&token).prefix_fn(self, token);
+        let mut parsed_so_far = get_parse_rule(&token).prefix_fn(self, token)?;
 
         while precedence < get_parse_rule(&self.current_token).precedence {
             token = self.advance();
-            parsed_so_far = get_parse_rule(&token).infix_fn(self, token, parsed_so_far);
+            parsed_so_far = get_parse_rule(&token).infix_fn(self, token, parsed_so_far)?;
         }
 
         Ok(parsed_so_far)
