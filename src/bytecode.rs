@@ -22,11 +22,14 @@ impl Bytecode {
         self.lines.push(line);
     }
 
-    // truncates length to u8, as the LOAD_CONST operation works on a single byte
-    pub fn add_constant(&mut self, val: Value, line: u32) -> u8 {
+    // Write a constant to the constants array,
+    // instruction to load it, and the constant's idx as the operand to that instruction.
+    pub fn add_constant(&mut self, val: Value, line: u32) -> () {
         self.constants.push(val);
+        let idx = self.constants.len() - 1;
+        self.code.push(Op::LoadConstant as u8);
+        self.code.push(idx as u8);
         self.lines.push(line);
-        return (self.constants.len() - 1) as u8;
     }
 }
 
@@ -34,12 +37,7 @@ impl Bytecode {
 fn test_bytecode() {
     let mut code = Bytecode::new();
 
-    // Equivalent to the following assembly:
-    // 0    LOAD_CONST      True
-    // 0    RETURN
-    let constant_idx = code.add_constant(Value::True, 0);
-    code.add_code(Op::LoadConstant as u8, 0);
-    code.add_code(constant_idx, 0);
+    code.add_constant(Value::True, 0);
     code.add_code(Op::Return as u8, 0);
 
     println!("{:#?}", code);

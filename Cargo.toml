@@ -5,3 +5,6 @@ authors = ["Evan Crook <evannc@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+
+[features]
+trace_exec = []

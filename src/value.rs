@@ -1,6 +1,6 @@
 // Defines value types in the Sprout language, and their representation in memory.
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy)]
 pub enum Value {
     Null,
     True,
