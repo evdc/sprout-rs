@@ -17,7 +17,8 @@ macro_rules! trace {
 
 #[derive(Debug, Clone, PartialEq)]
 enum VMError {
-    InvalidOpcode(u8)
+    InvalidOpcode(u8),
+    StackEmpty
 }
 
 type VMResult = Result<Value, VMError>;
@@ -43,11 +44,46 @@ impl VM {
             trace!(stack);
 
             match op {
-                Op::Return => return Ok(self.pop().unwrap_or(Value::Null)),
+                Op::Return => return Ok(self.pop()?),
 
                 Op::LoadConstant => {
                     let v = self.read_constant();
-                    self.push(v);
+                    self.push(v)
+                },
+
+                Op::Negate => {
+                    let v = self.pop()?;
+                    self.push(-v)
+                },
+
+                Op::Add => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    self.push(rhs + lhs);
+                }
+
+                Op::Sub => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    self.push(rhs - lhs);
+                }
+
+                Op::Mul => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    self.push(rhs * lhs);
+                }
+
+                Op::Div => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    self.push(rhs / lhs);
+                }
+
+                Op::Pow => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    self.push(rhs.powf(lhs));
                 }
 
                 Op::Invalid => return Err(VMError::InvalidOpcode(byte))
@@ -55,6 +91,8 @@ impl VM {
         }
     }
 
+    // todo:
+    // is it faster to use Vec::push() and Vec::pop() or implement it ourselves with a stack ptr?
     #[inline]
     fn push(&mut self, v: Value) -> () {
         self.stack.push(v);
@@ -62,9 +100,9 @@ impl VM {
     }
 
     #[inline]
-    fn pop(&mut self) -> Option<Value> {
+    fn pop(&mut self) -> VMResult {
         self.sp -= 1;
-        self.stack.pop()
+        self.stack.pop().ok_or(VMError::StackEmpty)
     }
 
     #[inline]
@@ -84,8 +122,34 @@ impl VM {
 #[test]
 fn test_vm() {
     let mut code = Bytecode::new();
-    code.add_constant(Value::True, 0);
-    code.add_code(Op::Return as u8, 0);
+
+    // Corresponds to the following source:
+    // 1 + 2 * 3 - 4 / -5
+    // which parses as
+    // (1 + (2 * 3)) - (4 / -5)
+    // which compiles to
+    // LOAD_CONST   4
+    // LOAD_CONST   5
+    // NEGATE
+    // DIV
+    // LOAD_CONST   2
+    // LOAD_CONST   3
+    // MUL
+    // LOAD_CONST   1
+    // ADD
+    // SUB
+    code.add_constant(4.0, 0);
+    code.add_constant(5.0, 0);
+    code.add_code(Op::Negate, 0);
+    code.add_code(Op::Div, 0);
+    code.add_constant(2.0, 0);
+    code.add_constant(3.0, 0);
+    code.add_code(Op::Mul, 0);
+    code.add_constant(1.0, 0);
+    code.add_code(Op::Add, 0);
+    code.add_code(Op::Sub, 0);
+
+    code.add_code(Op::Return, 0);
 
     let vm = VM::new(code);
 
@@ -97,8 +161,8 @@ fn test_vm() {
 #[test]
 fn test_vm_invalid_op() {
     let mut code = Bytecode::new();
-    code.add_code(255u8, 0);
-    code.add_code(0u8, 0);
+    code.add_code(Op::from(255), 0);
+    code.add_code(Op::Return, 0);
 
     let vm = VM::new(code);
 

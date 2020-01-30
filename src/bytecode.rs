@@ -17,8 +17,8 @@ impl Bytecode {
         }
     }
 
-    pub fn add_code(&mut self, opcode: u8, line: u32) -> () {
-        self.code.push(opcode);
+    pub fn add_code(&mut self, opcode: Op, line: u32) -> () {
+        self.code.push(opcode as u8);
         self.lines.push(line);
     }
 
@@ -37,8 +37,8 @@ impl Bytecode {
 fn test_bytecode() {
     let mut code = Bytecode::new();
 
-    code.add_constant(Value::True, 0);
-    code.add_code(Op::Return as u8, 0);
+    code.add_constant(42.0, 0);
+    code.add_code(Op::Return, 0);
 
     println!("{:#?}", code);
 }
