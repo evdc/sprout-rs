@@ -37,7 +37,7 @@ impl Bytecode {
 fn test_bytecode() {
     let mut code = Bytecode::new();
 
-    code.add_constant(42.0, 0);
+    code.add_constant(Value::Num(42.0), 0);
     code.add_code(Op::Return, 0);
 
     println!("{:#?}", code);

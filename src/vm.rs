@@ -18,7 +18,8 @@ macro_rules! trace {
 #[derive(Debug, Clone, PartialEq)]
 enum VMError {
     InvalidOpcode(u8),
-    StackEmpty
+    StackEmpty,
+    TypeError(String)
 }
 
 type VMResult = Result<Value, VMError>;
@@ -52,38 +53,56 @@ impl VM {
                 },
 
                 Op::Negate => {
-                    let v = self.pop()?;
-                    self.push(-v)
+                    match self.pop()? {
+                        Value::Num(x) => self.push(Value::Num(-x)),
+                        v @ _ => return Err(VMError::TypeError(format!("Invalid operand type for -{:?}", v)))
+                    }
                 },
 
+                // these could probably be accomplished with a macro
                 Op::Add => {
                     let rhs = self.pop()?;
                     let lhs = self.pop()?;
-                    self.push(rhs + lhs);
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l + r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} + {:?}", l, r)))
+                    }
                 }
 
                 Op::Sub => {
                     let rhs = self.pop()?;
                     let lhs = self.pop()?;
-                    self.push(rhs - lhs);
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l - r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} - {:?}", l, r)))
+                    }
                 }
 
                 Op::Mul => {
                     let rhs = self.pop()?;
                     let lhs = self.pop()?;
-                    self.push(rhs * lhs);
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l * r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} * {:?}", l, r)))
+                    }
                 }
 
                 Op::Div => {
                     let rhs = self.pop()?;
                     let lhs = self.pop()?;
-                    self.push(rhs / lhs);
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l / r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} / {:?}", l, r)))
+                    }
                 }
 
                 Op::Pow => {
                     let rhs = self.pop()?;
                     let lhs = self.pop()?;
-                    self.push(rhs.powf(lhs));
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l.powf(r))),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
                 }
 
                 Op::Invalid => return Err(VMError::InvalidOpcode(byte))
@@ -138,14 +157,14 @@ fn test_vm() {
     // LOAD_CONST   1
     // ADD
     // SUB
-    code.add_constant(4.0, 0);
-    code.add_constant(5.0, 0);
+    code.add_constant(Value::Num(4.0), 0);
+    code.add_constant(Value::Num(5.0), 0);
     code.add_code(Op::Negate, 0);
     code.add_code(Op::Div, 0);
-    code.add_constant(2.0, 0);
-    code.add_constant(3.0, 0);
+    code.add_constant(Value::Num(2.0), 0);
+    code.add_constant(Value::Num(3.0), 0);
     code.add_code(Op::Mul, 0);
-    code.add_constant(1.0, 0);
+    code.add_constant(Value::Num(1.0), 0);
     code.add_code(Op::Add, 0);
     code.add_code(Op::Sub, 0);
 
@@ -169,5 +188,19 @@ fn test_vm_invalid_op() {
     let res = vm.run();
 
     // todo: assert equals Err(InvalidOpcode(255))
+    println!("{:#?}", res)
+}
+
+#[test]
+fn test_vm_type_error() {
+    let mut code = Bytecode::new();
+    code.add_constant(Value::Num(42.0), 0);
+    code.add_constant(Value::Bool(false), 0);
+    code.add_code(Op::Add, 0);
+
+    let vm = VM::new(code);
+
+    let res = vm.run();
+
     println!("{:#?}", res)
 }
