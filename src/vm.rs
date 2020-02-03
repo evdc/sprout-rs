@@ -27,14 +27,13 @@ type VMResult = Result<Value, VMError>;
 pub struct VM {
     bytecode: Bytecode,
     ip: usize,
-    stack: Vec<Value>,
-    sp: usize
+    stack: Vec<Value>
 }
 
 impl VM {
     // Takes ownership of a Bytecode.
     fn new(bytecode: Bytecode) -> Self {
-        VM { bytecode, ip: 0, stack: Vec::new(), sp: 0}
+        VM { bytecode, ip: 0, stack: Vec::new() }
     }
 
     fn run(mut self) -> VMResult {
@@ -51,6 +50,9 @@ impl VM {
                     let v = self.read_constant();
                     self.push(v)
                 },
+                Op::LoadFalse => self.push(Value::Bool(false)),
+                Op::LoadTrue => self.push(Value::Bool(true)),
+                Op::LoadNull => self.push(Value::Null),
 
                 Op::Negate => {
                     match self.pop()? {
@@ -115,12 +117,10 @@ impl VM {
     #[inline]
     fn push(&mut self, v: Value) -> () {
         self.stack.push(v);
-        self.sp += 1;
     }
 
     #[inline]
     fn pop(&mut self) -> VMResult {
-        self.sp -= 1;
         self.stack.pop().ok_or(VMError::StackEmpty)
     }
 
@@ -133,6 +133,7 @@ impl VM {
 
     #[inline]
     fn read_constant(&mut self) -> Value {
+        // todo: support more than 255 constants
         let idx = self.read_byte() as usize;
         self.bytecode.constants[idx]        // can avoid clone because Values are Copy
     }
@@ -195,7 +196,7 @@ fn test_vm_invalid_op() {
 fn test_vm_type_error() {
     let mut code = Bytecode::new();
     code.add_constant(Value::Num(42.0), 0);
-    code.add_constant(Value::Bool(false), 0);
+    code.add_code(Op::LoadNull, 0);
     code.add_code(Op::Add, 0);
 
     let vm = VM::new(code);
