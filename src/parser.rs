@@ -1,4 +1,4 @@
-use crate::tokens::Token;
+use crate::token::Token;
 use crate::ast::ASTNode;
 use crate::lexer::Lexer;
 
@@ -69,11 +69,14 @@ fn infix_rassoc(parser: &mut Parser, token: Token, left: ASTNode, precedence: i3
     Ok(ASTNode { token, children: vec![left, right] })
 }
 
+// todo: instead of None where there is no valid parse rule (a holdover from Python),
+// use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
     return match token {
-        Token::LiteralInt(_)  => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
-        Token::LiteralStr(_)  => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
-        Token::LiteralBool(_) => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+        Token::LiteralNum(_)  |
+        Token::LiteralStr(_)  |
+        Token::LiteralBool(_) |
+        Token::LiteralNull    |
         Token::Word(_)        => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
 
         Token::Minus    => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },

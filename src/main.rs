@@ -1,13 +1,14 @@
+pub mod token;
 pub mod lexer;
-pub mod tokens;
-pub mod ast;
-pub mod parser;
-pub mod bytecode;
-pub mod opcode;
-pub mod value;
-pub mod vm;
+//pub mod ast;
+//pub mod parser;
+//pub mod bytecode;
+//pub mod opcode;
+//pub mod value;
+//pub mod vm;
+// pub mod codegen;
 
-use tokens::Token;
+use token::TokenType;
 use lexer::Lexer;
 // use ast::ASTNode;
 // use parser::Parser;
@@ -18,7 +19,7 @@ fn main() {
 
     loop {
         let t = lex.next_token();
-        if t == Token::EOF {
+        if t.typ == TokenType::EOF {
             break;
         }
         println!("{:?}", t)
