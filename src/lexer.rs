@@ -30,12 +30,20 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+    // TODO: maybe treat input as statically available rather than an iterator of chars?
     pub fn new(input: &str) -> Lexer {
         Lexer { input: input.chars().peekable(), current_line: 0, current_col: 0 }
     }
 
     fn advance(&mut self) -> Option<char> {
-        return self.input.next()
+        let c = self.input.next();
+        if c == Some('\n') {
+            self.current_line += 1;
+            self.current_col = 0;
+        } else {
+            self.current_col += 1;
+        }
+        c
     }
 
 //    fn consume(&mut self, expected: char) -> Option<char> {
@@ -108,6 +116,7 @@ impl<'a> Lexer<'a> {
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
+        let col = self.current_col;     // save the start pos of this token
         let typ = match self.advance() {
             Some('+') => TokenType::Plus,
             Some('-') => TokenType::Minus,
@@ -136,9 +145,7 @@ impl<'a> Lexer<'a> {
 
             None => TokenType::EOF
         };
-
-        // TODO line/col no don't get incremented, yet
-        Token { typ, line: self.current_line, col: self.current_col}
+        Token { typ, line: self.current_line, col: col}
     }
 }
 
@@ -167,11 +174,12 @@ fn tok(typ: TokenType) -> Token {
 
 #[test]
 fn test_lexer() {
-    let input = "true and not false + foo * \"bar\" ^ 3";
+    let input = "true and not false \n + foo * \"bar\" ^ 3";
     let lex = Lexer::new(input);
 
     let tokens: Vec<Token> = lex.into_iter().collect();
 
+    println!("{:#?}", tokens);
 
     assert_eq!(tokens, vec![
         tok(TokenType::LiteralBool(true)),
