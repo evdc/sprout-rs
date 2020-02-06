@@ -1,10 +1,11 @@
 use crate::token::Token;
-use crate::ast::ASTNode;
+use crate::token::TokenType;
+use crate::ast::Expression;
 use crate::lexer::Lexer;
 
-type ParseResult = Result<ASTNode, ParseError>;
+type ParseResult = Result<Expression, ParseError>;
 type PrefixFnType = fn(&mut Parser, Token) -> ParseResult;
-type InfixFnType = fn(&mut Parser, Token, ASTNode, i32) -> ParseResult;
+type InfixFnType = fn(&mut Parser, Token, Expression, u8) -> ParseResult;
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
@@ -13,21 +14,8 @@ pub enum ParseError {
     NoInfixFn(Token)
 }
 
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Parse error")
-    }
-}
-
-impl std::error::Error for ParseError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
-    }
-}
-
-
 struct ParseRule {
-    precedence: i32,
+    precedence: u8,
     prefix_fn: Option<PrefixFnType>,
     infix_fn: Option<InfixFnType>
 }
@@ -40,7 +28,7 @@ impl ParseRule {
         }
     }
 
-    fn infix_fn(&self, parser: &mut Parser, token: Token, left: ASTNode) -> ParseResult {
+    fn infix_fn(&self, parser: &mut Parser, token: Token, left: Expression) -> ParseResult {
         match self.infix_fn {
             None => Err(ParseError::NoInfixFn(token)),
             Some(f) => f(parser, token, left, self.precedence)
@@ -48,48 +36,47 @@ impl ParseRule {
     }
 }
 
-
-// These functions take ownership of a Token and give it to an ASTNode
+// These functions take ownership of a Token and give it to an Expression
 fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
-    Ok(ASTNode { token, children: vec![] })
+    Ok(Expression::Literal(token))
 }
 
 fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     let child = parser.expression(100)?;
-    Ok(ASTNode { token, children: vec![child] })
+    Ok(Expression::Prefix(token, Box::new(child)))
 }
 
-fn infix(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ParseResult {
+fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
     let right = parser.expression(precedence)?;
-    Ok(ASTNode { token, children: vec![left, right] })
+    Ok(Expression::Infix(token, Box::new(left), Box::new(right)))
 }
 
-fn infix_rassoc(parser: &mut Parser, token: Token, left: ASTNode, precedence: i32) -> ParseResult {
+fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
     let right = parser.expression(precedence-1)?;
-    Ok(ASTNode { token, children: vec![left, right] })
+    Ok(Expression::Infix(token, Box::new(left), Box::new(right)))
 }
 
 // todo: instead of None where there is no valid parse rule (a holdover from Python),
 // use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
-    return match token {
-        Token::LiteralNum(_)  |
-        Token::LiteralStr(_)  |
-        Token::LiteralBool(_) |
-        Token::LiteralNull    |
-        Token::Word(_)        => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+    match token.typ {
+        TokenType::LiteralNum(_)  |
+        TokenType::LiteralStr(_)  |
+        TokenType::LiteralBool(_) |
+        TokenType::LiteralNull    |
+        TokenType::Word(_)        => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
 
-        Token::Minus    => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },
-        Token::Plus     => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
-        Token::Star     => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
-        Token::Slash    => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
-        Token::Power    => ParseRule { precedence: 30, prefix_fn: None, infix_fn: Some(infix_rassoc) },
+        TokenType::Minus    => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },
+        TokenType::Plus     => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Star     => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Slash    => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Power    => ParseRule { precedence: 30, prefix_fn: None, infix_fn: Some(infix_rassoc) },
 
-        Token::And      => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
-        Token::Or       => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
-        Token::Not      => ParseRule { precedence: 5, prefix_fn: Some(unary_prefix), infix_fn: None },
+        TokenType::And      => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Or       => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Not      => ParseRule { precedence: 5, prefix_fn: Some(unary_prefix), infix_fn: None },
 
-        Token::EOF      => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
+        TokenType::EOF      => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
 
         _ => panic!("No parse rule for {:?}", token)
     }
@@ -104,12 +91,15 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
     pub fn new(lexer: &'a mut Lexer<'a>) -> Parser<'a> {
         // We init the parser with a throwaway first token, then immediately advance & discard it.
-        let mut p = Parser { tokens: lexer, current_token: Token::Illegal('\0') };
+        let mut p = Parser {
+            tokens: lexer,
+            current_token: Token { typ: TokenType::Illegal('\0') , line: 0, col: 0 }
+        };
         p.advance();
         p
     }
 
-    pub fn expression(&mut self, precedence: i32) -> Result<ASTNode, ParseError> {
+    pub fn expression(&mut self, precedence: u8) -> Result<Expression, ParseError> {
         let mut token = self.advance();
 
         let mut parsed_so_far = get_parse_rule(&token).prefix_fn(self, token)?;

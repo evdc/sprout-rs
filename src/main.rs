@@ -1,7 +1,8 @@
 pub mod token;
 pub mod lexer;
-//pub mod ast;
-//pub mod parser;
+pub mod ast;
+pub mod parser;
+
 //pub mod bytecode;
 //pub mod opcode;
 //pub mod value;
