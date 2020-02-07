@@ -16,13 +16,13 @@ macro_rules! trace {
 
 
 #[derive(Debug, Clone, PartialEq)]
-enum VMError {
+pub enum VMError {
     InvalidOpcode(u8),
     StackEmpty,
     TypeError(String)
 }
 
-type VMResult = Result<Value, VMError>;
+pub type VMResult = Result<Value, VMError>;
 
 pub struct VM {
     bytecode: Bytecode,
@@ -32,11 +32,11 @@ pub struct VM {
 
 impl VM {
     // Takes ownership of a Bytecode.
-    fn new(bytecode: Bytecode) -> Self {
+    pub fn new(bytecode: Bytecode) -> Self {
         VM { bytecode, ip: 0, stack: Vec::new() }
     }
 
-    fn run(mut self) -> VMResult {
+    pub fn run(mut self) -> VMResult {
         loop {
             let byte = self.read_byte();
             let op = Op::from(byte);

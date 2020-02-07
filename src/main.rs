@@ -3,26 +3,30 @@ pub mod lexer;
 pub mod ast;
 pub mod parser;
 
-//pub mod bytecode;
-//pub mod opcode;
-//pub mod value;
-//pub mod vm;
-// pub mod codegen;
+pub mod bytecode;
+pub mod opcode;
+pub mod value;
+pub mod vm;
+pub mod codegen;
 
-use token::TokenType;
 use lexer::Lexer;
-// use ast::ASTNode;
-// use parser::Parser;
+use parser::Parser;
+use codegen::Compiler;
+use vm::VM;
+
 
 fn main() {
-    let input = "true and not false + foo + \"bar\" * 3";
-    let mut lex = Lexer::new(input);
+    let input = "1 + 2 * 3 - 4 / -5";
+    let mut l = Lexer::new(input);
+    let mut p = Parser::new(&mut l);
+    let mut c = Compiler::new();
 
-    loop {
-        let t = lex.next_token();
-        if t.typ == TokenType::EOF {
-            break;
-        }
-        println!("{:?}", t)
-    }
+    let expr = p.expression(0).unwrap();
+    println!("AST: {:#?}", expr);
+
+    let result = c.compile(&expr);
+
+    let vm = VM::new(c.current_chunk);
+    let res = vm.run();
+    println!("VM result: {:#?}", res);
 }

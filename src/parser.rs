@@ -43,7 +43,7 @@ fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
 
 fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     let child = parser.expression(100)?;
-    Ok(Expression::Prefix(token, Box::new(child)))
+    Ok(Expression::Unary(token, Box::new(child)))
 }
 
 fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
@@ -134,7 +134,7 @@ fn test_parser() {
 
 #[test]
 fn test_parser_error() {
-    let input = "true and not false + ";
+    let input = "true and not - ";
     let mut lex = Lexer::new(input);
 
     let mut p = Parser::new(&mut lex);
