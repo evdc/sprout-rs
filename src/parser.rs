@@ -11,7 +11,8 @@ type InfixFnType = fn(&mut Parser, Token, Expression, u8) -> ParseResult;
 pub enum ParseError {
     UnexpectedEndOfInput,
     NoPrefixFn(Token),
-    NoInfixFn(Token)
+    NoInfixFn(Token),
+    ExpectedButFound(TokenType, TokenType)
 }
 
 struct ParseRule {
@@ -56,6 +57,11 @@ fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence:
     Ok(Expression::Infix(token, Box::new(left), Box::new(right)))
 }
 
+fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
+    let expr = parser.expression(0)?;
+    parser.consume(TokenType::RParen).and(Ok(expr))
+}
+
 // todo: instead of None where there is no valid parse rule (a holdover from Python),
 // use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
@@ -75,6 +81,9 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::And      => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
         TokenType::Or       => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
         TokenType::Not      => ParseRule { precedence: 5, prefix_fn: Some(unary_prefix), infix_fn: None },
+
+        TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
+        TokenType::RParen   => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
 
         TokenType::EOF      => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
 
@@ -117,12 +126,33 @@ impl<'a> Parser<'a> {
         self.current_token = self.tokens.next_token();
         t
     }
+
+    fn consume(&mut self, expected: TokenType) -> Result<(), ParseError> {
+        let found = self.advance();
+        if found.typ == expected {
+            Ok(())
+        } else {
+            Err(ParseError::ExpectedButFound(expected, found.typ))
+        }
+    }
 }
 
 #[test]
 fn test_parser() {
     let input = "true and not false + foo * \"bar\" - 3";
     // parses as: (true and (((not false) + (foo * "bar")) - 3))
+    let mut lex = Lexer::new(input);
+
+    let mut p = Parser::new(&mut lex);
+
+    let result = p.expression(0);
+
+    println!("{:#?}", result);
+}
+
+#[test]
+fn test_grouping() {
+    let input = "2 * (3 + 4)";
     let mut lex = Lexer::new(input);
 
     let mut p = Parser::new(&mut lex);

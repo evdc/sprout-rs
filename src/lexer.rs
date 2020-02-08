@@ -46,20 +46,6 @@ impl<'a> Lexer<'a> {
         c
     }
 
-//    fn consume(&mut self, expected: char) -> Option<char> {
-//        let found = self.input.next();
-//        match found {
-//            Some(c) => {
-//                if c == expected {
-//                    self.input.next()
-//                } else {
-//                    panic!("Expected {}, found {}", expected, c)
-//                }
-//            },
-//            None => panic!("Unexpected end of input (expected {})", expected)
-//        }
-//    }
-
     fn peek(&mut self) -> Option<&char> {
         return self.input.peek()
     }
