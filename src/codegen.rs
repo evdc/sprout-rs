@@ -60,11 +60,18 @@ impl Compiler {
                 self.compile_expression(&left)?;
                 self.compile_expression(&right)?;
                 match token.typ {
-                    TokenType::Plus => self.emit(Op::Add, line),
-                    TokenType::Minus => self.emit(Op::Sub, line),
-                    TokenType::Star => self.emit(Op::Mul, line),
-                    TokenType::Slash => self.emit(Op::Div, line),
-                    TokenType::Power => self.emit(Op::Pow, line),
+                    TokenType::Plus     => self.emit(Op::Add, line),
+                    TokenType::Minus    => self.emit(Op::Sub, line),
+                    TokenType::Star     => self.emit(Op::Mul, line),
+                    TokenType::Slash    => self.emit(Op::Div, line),
+                    TokenType::Power    => self.emit(Op::Pow, line),
+                    TokenType::Lt       => self.emit(Op::Lt, line),
+                    TokenType::LtEq     => self.emit(Op::LtEq, line),
+                    TokenType::Gt       => self.emit(Op::Gt, line),
+                    TokenType::GtEq     => self.emit(Op::GtEq, line),
+                    TokenType::Eq       => self.emit(Op::Eq, line),
+                    TokenType::NotEq    => self.emit(Op::NotEq, line),
+
                     _ => return Err(CompileError::CompileError("Unexpected binary token".to_string()))
                 }
             }
@@ -82,9 +89,14 @@ impl Compiler {
     }
 }
 
+// experimentally you could define a trait CompileInfix which TokenType variants impl
+// and then `token.compile_infix()` replaces the match on L62 above
+// doing all those impls is more verbose than a match expr but more extensible,
+// but the Expression Problem doesn't really matter here as you own the whole codebase
+
 #[test]
 fn test_compiler() {
-    let input = "1 + 2 * 3 - 4 / -5";
+    let input = "2 < 3 and 5 > 4 == true";
     let mut l = Lexer::new(input);
     let mut p = Parser::new(&mut l);
     let mut c = Compiler::new();

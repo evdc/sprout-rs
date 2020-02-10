@@ -66,21 +66,32 @@ fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
 // use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
     match token.typ {
+        // Arithmetic ops
+        TokenType::Power    => ParseRule { precedence: 50, prefix_fn: None, infix_fn: Some(infix_rassoc) },
+        TokenType::Star     => ParseRule { precedence: 40, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Slash    => ParseRule { precedence: 40, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Minus    => ParseRule { precedence: 30, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },
+        TokenType::Plus     => ParseRule { precedence: 30, prefix_fn: None, infix_fn: Some(infix) },
+
+        // Comparisons
+        TokenType::Lt       |
+        TokenType::LtEq     |
+        TokenType::Gt       |
+        TokenType::GtEq     => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::NotEq    |
+        TokenType::Eq       => ParseRule { precedence: 15, prefix_fn: None, infix_fn: Some(infix) },
+
+        // Logical ops
+        TokenType::And      => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Or       => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Not      => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: None },
+
+        // Literals
         TokenType::LiteralNum(_)  |
         TokenType::LiteralStr(_)  |
         TokenType::LiteralBool(_) |
         TokenType::LiteralNull    |
         TokenType::Word(_)        => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
-
-        TokenType::Minus    => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },
-        TokenType::Plus     => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Star     => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Slash    => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Power    => ParseRule { precedence: 30, prefix_fn: None, infix_fn: Some(infix_rassoc) },
-
-        TokenType::And      => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Or       => ParseRule { precedence: 5, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Not      => ParseRule { precedence: 5, prefix_fn: Some(unary_prefix), infix_fn: None },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
         TokenType::RParen   => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
@@ -90,6 +101,24 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         _ => panic!("No parse rule for {:?}", token)
     }
 }
+
+// === EXPERIMENTAL ===
+//trait InfixParse {
+//    const PRECEDENCE: u8;
+//
+//    fn parse(&self, parser: &mut Parser, left: Expression) -> ParseResult {
+//        let right = parser.expression(PRECEDENCE)?;
+//        Ok(Expression::Infix(self, Box::new(left), Box::new(right)))
+//    }
+//}
+//
+//impl InfixParse for TokenType::Sub {
+//    const PRECEDENCE: u8 = 10;
+//}
+//
+//impl UnaryPrefixParse for TokenType::Sub {
+//    const PRECEDENCE: u8 = 10;
+//}
 
 pub struct Parser<'a> {
     // Parser takes ownership of a Lexer, so they must have the same lifetime
@@ -153,6 +182,18 @@ fn test_parser() {
 #[test]
 fn test_grouping() {
     let input = "2 * (3 + 4)";
+    let mut lex = Lexer::new(input);
+
+    let mut p = Parser::new(&mut lex);
+
+    let result = p.expression(0);
+
+    println!("{:#?}", result);
+}
+
+#[test]
+fn test_comparison() {
+    let input = "2 < 3 and 5 > 4 == true";
     let mut lex = Lexer::new(input);
 
     let mut p = Parser::new(&mut lex);

@@ -6,13 +6,13 @@ pub mod parser;
 pub mod bytecode;
 pub mod opcode;
 pub mod value;
-pub mod vm;
+// pub mod vm;
 pub mod codegen;
 
 use lexer::Lexer;
 use parser::Parser;
 use codegen::Compiler;
-use vm::VM;
+// use vm::VM;
 
 
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
 
     let result = c.compile(&expr);
 
-    let vm = VM::new(c.current_chunk);
-    let res = vm.run();
-    println!("VM result: {:#?}", res);
+//    let vm = VM::new(c.current_chunk);
+//    let res = vm.run();
+//    println!("VM result: {:#?}", res);
 }

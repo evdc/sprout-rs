@@ -14,6 +14,14 @@ pub enum Op {
     Div,
     Pow,
 
+    // We could simplify the instruction set here, but let's make the vm a tiny bit faster instead?
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
+    Eq,
+    NotEq,
+
     // A hack that allows us to avoid wrapping all Op in an Option/Result;
     // we can make converting from bytes infallible.
     Invalid
@@ -33,6 +41,12 @@ impl From<u8> for Op {
             v if v == Op::Mul as u8 => Op::Mul,
             v if v == Op::Div as u8 => Op::Div,
             v if v == Op::Pow as u8 => Op::Pow,
+            v if v == Op::Lt as u8 => Op::Lt,
+            v if v == Op::LtEq as u8 => Op::LtEq,
+            v if v == Op::Gt as u8 => Op::Gt,
+            v if v == Op::GtEq as u8 => Op::GtEq,
+            v if v == Op::Eq as u8 => Op::Eq,
+            v if v == Op::NotEq as u8 => Op::NotEq,
             _ => Op::Invalid
         }
     }
