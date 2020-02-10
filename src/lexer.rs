@@ -112,6 +112,42 @@ impl<'a> Lexer<'a> {
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
 
+            Some('=') => {
+                if self.peek() == Some(&'=') {
+                    self.advance();
+                    TokenType::Eq
+                } else {
+                    TokenType::Assign
+                }
+            },
+
+            Some('>') => {
+                if self.peek() == Some(&'=') {
+                    self.advance();
+                    TokenType::GtEq
+                } else {
+                    TokenType::Gt
+                }
+            },
+
+            Some('<') => {
+                if self.peek() == Some(&'=') {
+                    self.advance();
+                    TokenType::LtEq
+                } else {
+                    TokenType::Lt
+                }
+            },
+
+            Some('!') => {
+                if self.peek() == Some(&'=') {
+                    self.advance();
+                    TokenType::NotEq
+                } else {
+                    TokenType::Illegal(*self.peek().unwrap())
+                }
+            }
+
             Some('"') => {
                 let s = self.read_str();
                 TokenType::LiteralStr(s)
@@ -178,6 +214,26 @@ fn test_lexer() {
         tok(TokenType::LiteralStr("bar".to_string())),
         tok(TokenType::Power),
         tok(TokenType::LiteralNum(3.0))
+    ])
+}
+
+#[test]
+fn test_lexer__comparisons() {
+    let input = "< <= > >= = == !=";
+    let lex = Lexer::new(input);
+
+    let tokens: Vec<Token> = lex.into_iter().collect();
+
+    println!("{:#?}", tokens);
+
+    assert_eq!(tokens, vec![
+        tok(TokenType::Lt),
+        tok(TokenType::LtEq),
+        tok(TokenType::Gt),
+        tok(TokenType::GtEq),
+        tok(TokenType::Assign),
+        tok(TokenType::Eq),
+        tok(TokenType::NotEq)
     ])
 }
 

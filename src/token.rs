@@ -12,9 +12,17 @@ pub enum TokenType {
     Slash,
     Power,
 
+    Eq,
+    NotEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
     And,
     Or,
     Not,
+
+    Assign,
 
     LParen,
     RParen,
