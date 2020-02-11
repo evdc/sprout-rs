@@ -46,11 +46,11 @@ impl Compiler {
 
             Expression::Unary(token, subexpr) => {
                 let line = token.line;
+                self.compile_expression(subexpr)?;
                 match token.typ {
-                    TokenType::Minus => {
-                        self.compile_expression(subexpr)?;
-                        self.emit(Op::Negate, line);
-                    },
+                    TokenType::Minus => self.emit(Op::Negate, line),
+                    TokenType::Not   => self.emit(Op::Not, line),
+
                     _ => return Err(CompileError::CompileError("Unexpected unary token".to_string()))
                 }
             },
@@ -96,7 +96,7 @@ impl Compiler {
 
 #[test]
 fn test_compiler() {
-    let input = "2 < 3 and 5 > 4 == true";
+    let input = "2 < 3";
     let mut l = Lexer::new(input);
     let mut p = Parser::new(&mut l);
     let mut c = Compiler::new();
