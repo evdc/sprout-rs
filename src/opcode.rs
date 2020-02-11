@@ -50,6 +50,7 @@ impl From<u8> for Op {
             v if v == Op::GtEq as u8 => Op::GtEq,
             v if v == Op::Eq as u8 => Op::Eq,
             v if v == Op::NotEq as u8 => Op::NotEq,
+            v if v == Op::Not as u8 => Op::Not,
             _ => Op::Invalid
         }
     }

@@ -61,6 +61,13 @@ impl VM {
                     }
                 },
 
+                Op::Not => {
+                    match self.pop()? {
+                        Value::Bool(b) => self.push(Value::Bool(!b)),
+                        v @ _ => return Err(VMError::TypeError(format!("Invalid operand type for `not {:?}`", v)))
+                    }
+                },
+
                 // these could probably be accomplished with a macro
                 Op::Add => {
                     let rhs = self.pop()?;
@@ -103,6 +110,60 @@ impl VM {
                     let lhs = self.pop()?;
                     match (lhs, rhs) {
                         (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l.powf(r))),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::Lt  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l < r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::LtEq  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l <= r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::Gt  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l > r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::GtEq  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l >= r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::Eq  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l == r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                    }
+                }
+
+                Op::NotEq  => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l != r)),
                         (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
                     }
                 }
