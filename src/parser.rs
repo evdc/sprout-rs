@@ -102,23 +102,6 @@ fn get_parse_rule(token: &Token) -> ParseRule {
     }
 }
 
-// === EXPERIMENTAL ===
-//trait InfixParse {
-//    const PRECEDENCE: u8;
-//
-//    fn parse(&self, parser: &mut Parser, left: Expression) -> ParseResult {
-//        let right = parser.expression(PRECEDENCE)?;
-//        Ok(Expression::Infix(self, Box::new(left), Box::new(right)))
-//    }
-//}
-//
-//impl InfixParse for TokenType::Sub {
-//    const PRECEDENCE: u8 = 10;
-//}
-//
-//impl UnaryPrefixParse for TokenType::Sub {
-//    const PRECEDENCE: u8 = 10;
-//}
 
 pub struct Parser<'a> {
     // Parser takes ownership of a Lexer, so they must have the same lifetime

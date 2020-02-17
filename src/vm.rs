@@ -2,18 +2,6 @@ use crate::bytecode::Bytecode;
 use crate::opcode::Op;
 use crate::value::Value;
 
-// The debug version
-#[cfg(feature = "trace_exec")]
-macro_rules! trace {
-    ($( $args:expr ),*) => { println!( $( $args ),* ); }
-}
-
-// Non-debug version
-#[cfg(not(feature = "trace_exec"))]
-macro_rules! trace {
-    ($( $args:expr ),*) => {}
-}
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMError {
@@ -30,6 +18,11 @@ pub struct VM {
     stack: Vec<Value>
 }
 
+// Possibly easier/cleaner to:
+// - Operate directly on Op variants, where the ones with arguments carry their arg in the constructor
+// - Serialize/deserialize these from bytes once, at program load, rather than consistently
+// imposes more startup overhead but maybe less runtime overhead than doing Op::from(byte) every loop? try benchmarking
+
 impl VM {
     // Takes ownership of a Bytecode.
     pub fn new(bytecode: Bytecode) -> Self {
@@ -40,8 +33,6 @@ impl VM {
         loop {
             let byte = self.read_byte();
             let op = Op::from(byte);
-            trace!(op);
-            trace!(stack);
 
             match op {
                 Op::Return => return Ok(self.pop()?),
@@ -74,6 +65,10 @@ impl VM {
                     let lhs = self.pop()?;
                     match (lhs, rhs) {
                         (Value::Num(l), Value::Num(r)) => self.push(Value::Num(l + r)),
+                        (Value::Str(l), Value::Str(r)) => {
+                            let v = Value::Str(format!("{}{}", l, r));
+                            self.push(v);
+                        }
                         (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} + {:?}", l, r)))
                     }
                 }
@@ -194,9 +189,9 @@ impl VM {
 
     #[inline]
     fn read_constant(&mut self) -> Value {
-        // todo: support more than 255 constants
+        // we should be able to avoid cloning constants, right...?
         let idx = self.read_byte() as usize;
-        self.bytecode.constants[idx]        // can avoid clone because Values are Copy
+        self.bytecode.constants[idx].clone()
     }
 }
 

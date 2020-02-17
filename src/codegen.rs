@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use crate::ast::Expression;
 use crate::bytecode::Bytecode;
 use crate::lexer::Lexer;
@@ -22,7 +23,7 @@ impl Compiler {
 
     pub fn compile(&mut self, expression: &Expression) -> Result<(), CompileError> {
         self.compile_expression(expression)?;
-        self.emit(Op::Return, 0);       // todo: how does it know this lineno
+        self.emit(Op::Return, 0);
         Ok(())
     }
 
@@ -30,16 +31,17 @@ impl Compiler {
         match expression {
             Expression::Literal(token) => {
                 let line = token.line;
-                match token.typ {
+                match &token.typ {
                     TokenType::LiteralNull => self.emit(Op::LoadNull, line),
                     TokenType::LiteralBool(b) => {
-                        if b == true {
+                        if *b == true {
                             self.emit(Op::LoadTrue, line)
                         } else {
                             self.emit(Op::LoadFalse, line)
                         }
                     },
-                    TokenType::LiteralNum(n) => self.emit_constant(Value::Num(n), line),
+                    TokenType::LiteralNum(n) => self.emit_constant(Value::Num(*n), line),
+                    TokenType::LiteralStr(s) => self.emit_constant(Value::Str(s.clone()), line),
                     _ => return Err(CompileError::CompileError("Unexpected literal token".to_string()))
                 }
             },

@@ -8,6 +8,8 @@ fn is_letter(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_'
 }
 
+// This could be a use case for Minimal Perfect Hashing
+// but is probably not a performance bottleneck at this time
 fn lookup_keyword(s: &str) -> TokenType {
     match s {
         "true" => TokenType::LiteralBool(true),
@@ -97,6 +99,15 @@ impl<'a> Lexer<'a> {
         return s;
     }
 
+    fn two_char_token(&mut self, ch: char, expected: TokenType, otherwise: TokenType) -> TokenType {
+        if self.peek() == Some(&ch) {
+            self.advance();
+            expected
+        } else {
+            otherwise
+        }
+    }
+
     // Returns a plain Token, not Option<Token> or Result,
     // leaving handling Token::EOF or Token::Illegal to the parser
     pub fn next_token(&mut self) -> Token {
@@ -112,41 +123,10 @@ impl<'a> Lexer<'a> {
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
 
-            Some('=') => {
-                if self.peek() == Some(&'=') {
-                    self.advance();
-                    TokenType::Eq
-                } else {
-                    TokenType::Assign
-                }
-            },
-
-            Some('>') => {
-                if self.peek() == Some(&'=') {
-                    self.advance();
-                    TokenType::GtEq
-                } else {
-                    TokenType::Gt
-                }
-            },
-
-            Some('<') => {
-                if self.peek() == Some(&'=') {
-                    self.advance();
-                    TokenType::LtEq
-                } else {
-                    TokenType::Lt
-                }
-            },
-
-            Some('!') => {
-                if self.peek() == Some(&'=') {
-                    self.advance();
-                    TokenType::NotEq
-                } else {
-                    TokenType::Illegal(*self.peek().unwrap())
-                }
-            }
+            Some('=') => self.two_char_token('=', TokenType::Eq, TokenType::Assign),
+            Some('>') => self.two_char_token('=', TokenType::GtEq, TokenType::Gt),
+            Some('<') => self.two_char_token('=', TokenType::LtEq, TokenType::Lt),
+            Some('!') => self.two_char_token('=', TokenType::NotEq, TokenType::Illegal('!')),
 
             Some('"') => {
                 let s = self.read_str();

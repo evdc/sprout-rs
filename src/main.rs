@@ -17,7 +17,9 @@ use vm::VM;
 
 fn main() {
     //let input = "1 + 2 * 3 - 4 / -5";
-    let input = "not 2 <= 3";
+    //let input = "not 2 <= 3";
+    let input = "\"foo\" + \"bar\"";
+
     let mut l = Lexer::new(input);
     let mut p = Parser::new(&mut l);
     let mut c = Compiler::new();
@@ -25,7 +27,9 @@ fn main() {
     let expr = p.expression(0).unwrap();
     println!("AST: {:#?}", expr);
 
-    let result = c.compile(&expr);
+    let _compile_result = c.compile(&expr);
+
+    println!("Bytecode: {:#?}", c.current_chunk);
 
     let vm = VM::new(c.current_chunk);
     let res = vm.run();
