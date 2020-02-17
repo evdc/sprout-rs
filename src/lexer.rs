@@ -12,13 +12,15 @@ fn is_letter(ch: char) -> bool {
 // but is probably not a performance bottleneck at this time
 fn lookup_keyword(s: &str) -> TokenType {
     match s {
-        "true" => TokenType::LiteralBool(true),
+        "true"  => TokenType::LiteralBool(true),
         "false" => TokenType::LiteralBool(false),
         "null"  => TokenType::LiteralNull,
 
-        "and" => TokenType::And,
-        "or" => TokenType::Or,
-        "not" => TokenType::Not,
+        "and"   => TokenType::And,
+        "or"    => TokenType::Or,
+        "not"   => TokenType::Not,
+
+        "let"   => TokenType::Let,
 
         _ => TokenType::Word(s.to_string())
     }

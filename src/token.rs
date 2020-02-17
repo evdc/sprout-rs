@@ -23,6 +23,7 @@ pub enum TokenType {
     Not,
 
     Assign,
+    Let,
 
     LParen,
     RParen,

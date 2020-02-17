@@ -1,6 +1,7 @@
 use crate::token::Token;
 use crate::token::TokenType;
 use crate::ast::Expression;
+use crate::ast::Statement;
 use crate::lexer::Lexer;
 
 type ParseResult = Result<Expression, ParseError>;
@@ -12,6 +13,7 @@ pub enum ParseError {
     UnexpectedEndOfInput,
     NoPrefixFn(Token),
     NoInfixFn(Token),
+    ExpectedIdentifier(Token),
     ExpectedButFound(TokenType, TokenType)
 }
 
@@ -120,6 +122,32 @@ impl<'a> Parser<'a> {
         p
     }
 
+    // =============================================================================================
+
+    pub fn statement(&mut self) -> Result<Statement, ParseError> {
+        match self.current_token.typ {
+            TokenType::Let => self.let_statement(),
+            _ => self.expression(0).map(Statement::Expression)
+        }
+    }
+
+    fn let_statement(&mut self) -> Result<Statement, ParseError> {
+        self.advance();     // Consume 'let'
+
+        // Consume identifier name
+        if let TokenType::Word(name) = self.advance().typ {
+            self.consume(TokenType::Assign)?;
+
+            let expr = self.expression(0)?;
+
+            Ok(Statement::Assign(name, expr))
+        } else {
+            Err(ParseError::ExpectedIdentifier(self.current_token.clone()))
+        }
+    }
+
+    // =============================================================================================
+
     pub fn expression(&mut self, precedence: u8) -> Result<Expression, ParseError> {
         let mut token = self.advance();
 
@@ -132,6 +160,8 @@ impl<'a> Parser<'a> {
 
         Ok(parsed_so_far)
     }
+
+    // =============================================================================================
 
     fn advance(&mut self) -> Token {
         let t = self.current_token.clone();
@@ -147,6 +177,20 @@ impl<'a> Parser<'a> {
             Err(ParseError::ExpectedButFound(expected, found.typ))
         }
     }
+
+    fn match_next(&mut self, expected: TokenType) -> bool {
+        if !self.check(expected) {
+            false
+        } else {
+            self.advance();
+            true
+        }
+    }
+
+    #[inline]
+    fn check(&mut self, expected: TokenType) -> bool {
+        self.current_token.typ == expected
+    }
 }
 
 #[test]
@@ -158,6 +202,16 @@ fn test_parser() {
     let mut p = Parser::new(&mut lex);
 
     let result = p.expression(0);
+
+    println!("{:#?}", result);
+}
+
+#[test]
+fn test_assignment() {
+    let mut lex = Lexer::new("let foo = 3 + 4");
+    let mut p = Parser::new(&mut lex);
+
+    let result = p.statement();
 
     println!("{:#?}", result);
 }

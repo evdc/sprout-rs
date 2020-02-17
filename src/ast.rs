@@ -6,3 +6,9 @@ pub enum Expression {
     Unary(Token, Box<Expression>),
     Infix(Token, Box<Expression>, Box<Expression>)
 }
+
+#[derive(Debug)]
+pub enum Statement {
+    Assign(String, Expression),
+    Expression(Expression)
+}
