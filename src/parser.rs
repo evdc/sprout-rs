@@ -44,6 +44,10 @@ fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::Literal(token))
 }
 
+fn variable(parser: &mut Parser, token: Token) -> ParseResult {
+    Ok(Expression::Variable(token))
+}
+
 fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     let child = parser.expression(100)?;
     Ok(Expression::Unary(token, Box::new(child)))
@@ -92,15 +96,14 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LiteralNum(_)  |
         TokenType::LiteralStr(_)  |
         TokenType::LiteralBool(_) |
-        TokenType::LiteralNull    |
-        TokenType::Word(_)        => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+        TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+
+        TokenType::Word(_)  => ParseRule { precedence: 0, prefix_fn: Some(variable), infix_fn: None },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
-        TokenType::RParen   => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
 
-        TokenType::EOF      => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None },
-
-        _ => panic!("No parse rule for {:?}", token)
+        // Ignored tokens, whose parse rule should never be invoked.
+        _ => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None }
     }
 }
 
@@ -134,7 +137,7 @@ impl<'a> Parser<'a> {
     fn let_statement(&mut self) -> Result<Statement, ParseError> {
         self.advance();     // Consume 'let'
 
-        // Consume identifier name
+        // Consume identifier name, '=', and expression. (Variables must be initialized)
         if let TokenType::Word(name) = self.advance().typ {
             self.consume(TokenType::Assign)?;
 
@@ -208,7 +211,7 @@ fn test_parser() {
 
 #[test]
 fn test_assignment() {
-    let mut lex = Lexer::new("let foo = 3 + 4");
+    let mut lex = Lexer::new("foo + bar");
     let mut p = Parser::new(&mut lex);
 
     let result = p.statement();

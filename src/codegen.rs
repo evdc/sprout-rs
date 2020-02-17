@@ -46,6 +46,8 @@ impl Compiler {
                 }
             },
 
+            Expression::Variable(token) => unimplemented!(),
+
             Expression::Unary(token, subexpr) => {
                 let line = token.line;
                 self.compile_expression(subexpr)?;
