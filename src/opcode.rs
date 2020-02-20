@@ -24,6 +24,9 @@ pub enum Op {
     Eq,
     NotEq,
 
+    SetGlobal,
+    GetGlobal,
+
     // A hack that allows us to avoid wrapping all Op in an Option/Result;
     // we can make converting from bytes infallible.
     Invalid

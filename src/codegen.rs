@@ -16,6 +16,8 @@ pub struct Compiler {
     pub current_chunk: Bytecode
 }
 
+// Single pass compilation/codegen over an AST.
+// May add more passes later: type checking/inference, optimization, rewriting, ...
 impl Compiler {
     pub fn new() -> Self {
         Compiler { current_chunk: Bytecode::new() }
@@ -42,12 +44,17 @@ impl Compiler {
                     },
                     TokenType::LiteralNum(n) => self.emit_constant(Value::Num(*n), line),
                     TokenType::LiteralStr(s) => self.emit_constant(Value::Str(s.clone()), line),
+
+                    TokenType::Name(name) => {
+                        let global_idx = self.current_chunk.add_constant(Value::Str(name.clone()));
+                        self.emit_operand(Op::GetGlobal, global_idx, line);
+                    }
+
                     _ => return Err(CompileError::CompileError("Unexpected literal token".to_string()))
                 }
             },
 
-            Expression::Variable(token) => unimplemented!(),
-            Expression::Assign(name, value) => unimplemented!(),
+            Expression::Assign(token, value) => unimplemented!(),
 
             Expression::Unary(token, subexpr) => {
                 let line = token.line;
@@ -86,11 +93,16 @@ impl Compiler {
     }
 
     fn emit(&mut self, op: Op, line: u32) -> () {
-        self.current_chunk.add_code(op, line)
+        self.current_chunk.add_byte(op as u8, line);
+    }
+
+    fn emit_operand(&mut self, op: Op, operand: u8, line: u32) -> () {
+        self.current_chunk.add_bytes(op as u8, operand, line);
     }
 
     fn emit_constant(&mut self, v: Value, line: u32) -> () {
-        self.current_chunk.add_constant(v, line)
+        let idx = self.current_chunk.add_constant(v);
+        self.current_chunk.add_bytes(Op::LoadConstant as u8, idx, line);
     }
 }
 

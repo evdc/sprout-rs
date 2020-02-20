@@ -22,7 +22,7 @@ fn lookup_keyword(s: &str) -> TokenType {
 
         "let"   => TokenType::Let,
 
-        _ => TokenType::Word(s.to_string())
+        _ => TokenType::Name(s.to_string())
     }
 }
 
@@ -191,7 +191,7 @@ fn test_lexer() {
         tok(TokenType::Not),
         tok(TokenType::LiteralBool(false)),
         tok(TokenType::Plus),
-        tok(TokenType::Word("foo".to_string())),
+        tok(TokenType::Name("foo".to_string())),
         tok(TokenType::Star),
         tok(TokenType::LiteralStr("bar".to_string())),
         tok(TokenType::Power),
@@ -200,7 +200,7 @@ fn test_lexer() {
 }
 
 #[test]
-fn test_lexer__comparisons() {
+fn test_lexer_comparisons() {
     let input = "< <= > >= = == !=";
     let lex = Lexer::new(input);
 

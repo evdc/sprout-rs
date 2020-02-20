@@ -4,7 +4,7 @@ pub enum TokenType {
     LiteralBool(bool),
     LiteralNum(f64),
     LiteralStr(String),
-    Word(String),
+    Name(String),
 
     Plus,
     Minus,

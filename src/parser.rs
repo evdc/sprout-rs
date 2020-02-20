@@ -44,10 +44,6 @@ fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::Literal(token))
 }
 
-fn variable(parser: &mut Parser, token: Token) -> ParseResult {
-    Ok(Expression::Variable(token))
-}
-
 fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     let child = parser.expression(100)?;
     Ok(Expression::Unary(token, Box::new(child)))
@@ -70,12 +66,13 @@ fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
 
 fn assignment(parser: &mut Parser, _token: Token) -> ParseResult {
     // Consume identifier name, '=', and expression. (Variables must be initialized)
-    if let TokenType::Word(name) = parser.advance().typ {
+    let identifier_token = parser.advance();
+    if let TokenType::Name(_) = identifier_token.typ {
         parser.consume(TokenType::Assign)?;
 
         let expr = parser.expression(0)?;
 
-        Ok(Expression::Assign(name, Box::new(expr)))
+        Ok(Expression::Assign(identifier_token, Box::new(expr)))
     } else {
         Err(ParseError::ExpectedIdentifier(parser.current_token.clone()))
     }
@@ -112,7 +109,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
 
         TokenType::Let      => ParseRule { precedence: 0, prefix_fn: Some(assignment), infix_fn: None },
-        TokenType::Word(_)  => ParseRule { precedence: 0, prefix_fn: Some(variable), infix_fn: None },
+        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
 
@@ -171,23 +168,23 @@ impl<'a> Parser<'a> {
         t
     }
 
-    fn consume(&mut self, expected: TokenType) -> Result<(), ParseError> {
+    fn consume(&mut self, expected: TokenType) -> Result<Token, ParseError> {
         let found = self.advance();
         if found.typ == expected {
-            Ok(())
+            Ok(found)
         } else {
             Err(ParseError::ExpectedButFound(expected, found.typ))
         }
     }
 
-    fn match_next(&mut self, expected: TokenType) -> bool {
-        if !self.check(expected) {
-            false
-        } else {
-            self.advance();
-            true
-        }
-    }
+//    fn match_next(&mut self, expected: TokenType) -> bool {
+//        if !self.check(expected) {
+//            false
+//        } else {
+//            self.advance();
+//            true
+//        }
+//    }
 
     #[inline]
     fn check(&mut self, expected: TokenType) -> bool {
