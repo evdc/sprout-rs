@@ -1,7 +1,7 @@
 use crate::token::Token;
 use crate::token::TokenType;
 use crate::ast::Expression;
-use crate::ast::Statement;
+// use crate::ast::Statement;
 use crate::lexer::Lexer;
 
 type ParseResult = Result<Expression, ParseError>;
@@ -68,6 +68,19 @@ fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
     parser.consume(TokenType::RParen).and(Ok(expr))
 }
 
+fn assignment(parser: &mut Parser, _token: Token) -> ParseResult {
+    // Consume identifier name, '=', and expression. (Variables must be initialized)
+    if let TokenType::Word(name) = parser.advance().typ {
+        parser.consume(TokenType::Assign)?;
+
+        let expr = parser.expression(0)?;
+
+        Ok(Expression::Assign(name, Box::new(expr)))
+    } else {
+        Err(ParseError::ExpectedIdentifier(parser.current_token.clone()))
+    }
+}
+
 // todo: instead of None where there is no valid parse rule (a holdover from Python),
 // use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
@@ -98,6 +111,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LiteralBool(_) |
         TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
 
+        TokenType::Let      => ParseRule { precedence: 0, prefix_fn: Some(assignment), infix_fn: None },
         TokenType::Word(_)  => ParseRule { precedence: 0, prefix_fn: Some(variable), infix_fn: None },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
@@ -127,27 +141,12 @@ impl<'a> Parser<'a> {
 
     // =============================================================================================
 
-    pub fn statement(&mut self) -> Result<Statement, ParseError> {
-        match self.current_token.typ {
-            TokenType::Let => self.let_statement(),
-            _ => self.expression(0).map(Statement::Expression)
-        }
-    }
-
-    fn let_statement(&mut self) -> Result<Statement, ParseError> {
-        self.advance();     // Consume 'let'
-
-        // Consume identifier name, '=', and expression. (Variables must be initialized)
-        if let TokenType::Word(name) = self.advance().typ {
-            self.consume(TokenType::Assign)?;
-
-            let expr = self.expression(0)?;
-
-            Ok(Statement::Assign(name, expr))
-        } else {
-            Err(ParseError::ExpectedIdentifier(self.current_token.clone()))
-        }
-    }
+//    pub fn statement(&mut self) -> Result<Statement, ParseError> {
+//        match self.current_token.typ {
+//            // TokenType::Let => self.let_statement(),
+//            _ => self.expression(0).map(Statement::Expression)
+//        }
+//    }
 
     // =============================================================================================
 
@@ -211,10 +210,10 @@ fn test_parser() {
 
 #[test]
 fn test_assignment() {
-    let mut lex = Lexer::new("foo + bar");
+    let mut lex = Lexer::new("let foo = 3 + 4");
     let mut p = Parser::new(&mut lex);
 
-    let result = p.statement();
+    let result = p.expression(0);
 
     println!("{:#?}", result);
 }

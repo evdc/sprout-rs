@@ -4,12 +4,7 @@ use crate::token::Token;
 pub enum Expression {
     Literal(Token),
     Variable(Token),
+    Assign(String, Box<Expression>),
     Unary(Token, Box<Expression>),
     Infix(Token, Box<Expression>, Box<Expression>)
-}
-
-#[derive(Debug)]
-pub enum Statement {
-    Assign(String, Expression),
-    Expression(Expression)
 }

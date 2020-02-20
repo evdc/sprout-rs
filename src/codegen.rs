@@ -47,6 +47,7 @@ impl Compiler {
             },
 
             Expression::Variable(token) => unimplemented!(),
+            Expression::Assign(name, value) => unimplemented!(),
 
             Expression::Unary(token, subexpr) => {
                 let line = token.line;
