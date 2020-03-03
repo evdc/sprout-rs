@@ -1,7 +1,6 @@
 use crate::token::Token;
 use crate::token::TokenType;
-use crate::ast::Expression;
-// use crate::ast::Statement;
+use crate::ast::*;
 use crate::lexer::Lexer;
 
 type ParseResult = Result<Expression, ParseError>;
@@ -41,22 +40,22 @@ impl ParseRule {
 
 // These functions take ownership of a Token and give it to an Expression
 fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
-    Ok(Expression::Literal(token))
+    Ok(Expression::literal(token))
 }
 
 fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
-    let child = parser.expression(100)?;
-    Ok(Expression::Unary(token, Box::new(child)))
+    let value = parser.expression(100)?;
+    Ok(Expression::unary(token, value))
 }
 
 fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
     let right = parser.expression(precedence)?;
-    Ok(Expression::Infix(token, Box::new(left), Box::new(right)))
+    Ok(Expression::binary(token, left, right))
 }
 
 fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
     let right = parser.expression(precedence-1)?;
-    Ok(Expression::Infix(token, Box::new(left), Box::new(right)))
+    Ok(Expression::binary(token, left, right))
 }
 
 fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
@@ -64,15 +63,15 @@ fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
     parser.consume(TokenType::RParen).and(Ok(expr))
 }
 
-fn assignment(parser: &mut Parser, _token: Token) -> ParseResult {
+fn assignment(parser: &mut Parser, token: Token) -> ParseResult {
     // Consume identifier name, '=', and expression. (Variables must be initialized)
     let identifier_token = parser.advance();
-    if let TokenType::Name(_) = identifier_token.typ {
+    if let TokenType::Name(name) = identifier_token.typ {
         parser.consume(TokenType::Assign)?;
 
         let expr = parser.expression(0)?;
 
-        Ok(Expression::Assign(identifier_token, Box::new(expr)))
+        Ok(Expression::assign(token, name, expr))
     } else {
         Err(ParseError::ExpectedIdentifier(parser.current_token.clone()))
     }
@@ -135,15 +134,6 @@ impl<'a> Parser<'a> {
         p.advance();
         p
     }
-
-    // =============================================================================================
-
-//    pub fn statement(&mut self) -> Result<Statement, ParseError> {
-//        match self.current_token.typ {
-//            // TokenType::Let => self.let_statement(),
-//            _ => self.expression(0).map(Statement::Expression)
-//        }
-//    }
 
     // =============================================================================================
 

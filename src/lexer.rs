@@ -41,12 +41,7 @@ impl<'a> Lexer<'a> {
 
     fn advance(&mut self) -> Option<char> {
         let c = self.input.next();
-        if c == Some('\n') {
-            self.current_line += 1;
-            self.current_col = 0;
-        } else {
-            self.current_col += 1;
-        }
+        self.current_col += 1;
         c
     }
 
@@ -55,13 +50,25 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_whitespace(&mut self) {
+        // Newlines have semantic meaning: they can separate statements. So we don't skip them here.
         while match self.peek() {
-            Some(ch) => ch.is_whitespace(),
+            Some(ch) => ch.is_whitespace() && ch != &'\n',
             _ => false,
         } {
             self.advance();
         }
     }
+
+//    fn read_newlines(&mut self) {
+//        loop {
+//            if self.peek() != Some(&'\n') {
+//                bre
+//            } else {
+//                self.advance();
+//                self.current_line += 1;
+//            }
+//        }
+//    }
 
     fn read_name(&mut self, ch: char) -> String {
         let mut name = String::new();
@@ -114,8 +121,14 @@ impl<'a> Lexer<'a> {
     // leaving handling Token::EOF or Token::Illegal to the parser
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
+        let col = self.current_col;
 
-        let col = self.current_col;     // save the start pos of this token
+        // A run of any number of newlines gets collapsed into a single newline token.
+//        while self.peek() == Some(&'\n') {
+//            self.advance();
+//            return Token { typ: TokenType::Newline, line: self.current_line, col: col}
+//        }
+
         let typ = match self.advance() {
             Some('+') => TokenType::Plus,
             Some('-') => TokenType::Minus,
@@ -124,6 +137,7 @@ impl<'a> Lexer<'a> {
             Some('^') => TokenType::Power,
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
+            Some(';') => TokenType::Semicolon,
 
             Some('=') => self.two_char_token('=', TokenType::Eq, TokenType::Assign),
             Some('>') => self.two_char_token('=', TokenType::GtEq, TokenType::Gt),
@@ -156,12 +170,6 @@ impl<'a> Lexer<'a> {
 impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
 
-    // So you probably don't need to do the Token::EOF thing here
-    // Peekable<Chars> gives you a None when it has run out of chars anyway
-    // so in Lexer::next_token you match on that and yield Token::EOF,
-    // and then here you match on that and turn it back to a None, which seems redundant
-    // also then everything consuming lexer (i.e. parser) has to handle Options
-    // but you're supposed to yield None for the Iterator trait to know when to stop
     fn next(&mut self) -> Option<Token> {
         let tok = self.next_token();
         match tok.typ {
@@ -218,6 +226,28 @@ fn test_lexer_comparisons() {
         tok(TokenType::NotEq)
     ])
 }
+
+#[test]
+fn test_lexer_newlines() {
+    let input = "2 + 3\n\n\n3+4\n";
+    let lex = Lexer::new(input);
+
+    let tokens: Vec<Token> = lex.into_iter().collect();
+
+    println!("{:#?}", tokens);
+
+    assert_eq!(tokens, vec![
+        tok(TokenType::LiteralNum(2.0)),
+        tok(TokenType::Plus),
+        tok(TokenType::LiteralNum(3.0)),
+        tok(TokenType::Newline),
+        tok(TokenType::LiteralNum(3.0)),
+        tok(TokenType::Plus),
+        tok(TokenType::LiteralNum(4.0)),
+        tok(TokenType::Newline),
+    ])
+}
+
 
 //#[test]
 //fn test_lexer_illegal_char() {

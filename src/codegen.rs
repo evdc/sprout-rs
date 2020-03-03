@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use crate::ast::Expression;
+use crate::ast::*;
 use crate::bytecode::Bytecode;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -31,8 +31,9 @@ impl Compiler {
 
     fn compile_expression(&mut self, expression: &Expression) -> Result<(), CompileError> {
         match expression {
-            Expression::Literal(token) => {
-                let line = token.line;
+            Expression::Literal(expression) => {
+                let line = expression.token.line;
+
                 match &token.typ {
                     TokenType::LiteralNull => self.emit(Op::LoadNull, line),
                     TokenType::LiteralBool(b) => {
@@ -54,7 +55,10 @@ impl Compiler {
                 }
             },
 
-            Expression::Assign(token, value) => unimplemented!(),
+            Expression::Assign(token, value) => {
+                let line = token.line;
+
+            },
 
             Expression::Unary(token, subexpr) => {
                 let line = token.line;
@@ -105,11 +109,6 @@ impl Compiler {
         self.current_chunk.add_bytes(Op::LoadConstant as u8, idx, line);
     }
 }
-
-// experimentally you could define a trait CompileInfix which TokenType variants impl
-// and then `token.compile_infix()` replaces the match on L62 above
-// doing all those impls is more verbose than a match expr but more extensible,
-// but the Expression Problem doesn't really matter here as you own the whole codebase
 
 #[test]
 fn test_compiler() {

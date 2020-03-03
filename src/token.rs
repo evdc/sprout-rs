@@ -28,6 +28,9 @@ pub enum TokenType {
     LParen,
     RParen,
 
+    Semicolon,
+    Newline,
+
     EOF,
     Illegal(char)
 }
