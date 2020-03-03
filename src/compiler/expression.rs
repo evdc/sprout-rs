@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::compiler::token::Token;
 
 // AST nodes (currently only Expressions) carry Tokens (owned),
 // so that they can carry line/col info through to the runtime, for error reporting.

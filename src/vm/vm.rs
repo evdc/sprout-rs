@@ -1,9 +1,8 @@
+use crate::vm::opcode::Op;
+use crate::vm::bytecode::Bytecode;
+use crate::vm::value::Value;
+
 use std::collections::HashMap;
-
-use crate::bytecode::Bytecode;
-use crate::opcode::Op;
-use crate::value::Value;
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMError {

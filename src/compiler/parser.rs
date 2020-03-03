@@ -1,7 +1,6 @@
-use crate::token::Token;
-use crate::token::TokenType;
-use crate::ast::*;
-use crate::lexer::Lexer;
+use crate::compiler::lexer::Lexer;
+use crate::compiler::token::{Token, TokenType};
+use crate::compiler::expression::*;
 
 type ParseResult = Result<Expression, ParseError>;
 type PrefixFnType = fn(&mut Parser, Token) -> ParseResult;

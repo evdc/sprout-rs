@@ -1,8 +1,8 @@
 use std::str::Chars;
 use std::iter::Peekable;
 
-use crate::token::Token;
-use crate::token::TokenType;
+use super::token::Token;
+use super::token::TokenType;
 
 fn is_letter(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_'

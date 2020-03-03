@@ -1,8 +1,11 @@
-use crate::ast::*;
-use crate::bytecode::Bytecode;
-use crate::opcode::Op;
-use crate::token::TokenType;
-use crate::value::Value;
+use super::expression::*;
+use super::token::TokenType;
+
+use crate::vm::value::Value;
+use crate::vm::opcode::Op;
+use crate::vm::bytecode::Bytecode;
+
+
 
 #[derive(Debug)]
 pub enum CompileError {
@@ -50,6 +53,15 @@ impl Compile for LiteralExpr {
     }
 }
 
+impl Compile for AssignExpr {
+    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
+        compile_into(*self.value, bytecode)?;
+        let const_idx = bytecode.add_constant(Value::Str(self.name.clone()));
+        bytecode.add_bytes(Op::SetGlobal as u8, const_idx, self.token.line);
+        Ok(())
+    }
+}
+
 impl Compile for UnaryExpr {
     fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
         compile_into(*self.value, bytecode)?;
@@ -92,7 +104,7 @@ fn compile_into(expr: Expression, bytecode: &mut Bytecode) -> CompileResult {
     match expr {
         Expression::Literal(expr) => expr.compile_into(bytecode),
         Expression::Unary(expr) => expr.compile_into(bytecode),
-        Expression::Assign(_expr) => unimplemented!(),
+        Expression::Assign(expr) => expr.compile_into(bytecode),
         Expression::Binary(expr) => expr.compile_into(bytecode)
     }
 }
@@ -100,18 +112,19 @@ fn compile_into(expr: Expression, bytecode: &mut Bytecode) -> CompileResult {
 pub fn compile(expr: Expression) -> Result<Bytecode, CompileError> {
     let mut code = Bytecode::new();
     compile_into(expr, &mut code)?;
+    code.add_byte(Op::Return as u8, 0);
     Ok(code)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::lexer::Lexer;
-    use crate::parser::Parser;
+    use crate::compiler::lexer::Lexer;
+    use crate::compiler::parser::Parser;
     use super::compile;
 
     #[test]
     fn test_compile() {
-        let input = "2 < 3";
+        let input = "let foo = 3 + 4";
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
         let expr = p.expression(0).unwrap();

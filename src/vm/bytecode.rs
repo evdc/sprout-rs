@@ -1,5 +1,5 @@
-use crate::opcode::Op;
-use crate::value::Value;
+use crate::vm::value::Value;
+use crate::vm::opcode::Op;
 
 #[derive(Debug)]
 pub struct Bytecode {
