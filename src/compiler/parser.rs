@@ -134,6 +134,12 @@ impl<'a> Parser<'a> {
         p
     }
 
+    pub fn parse(input: &str) -> Result<Expression, ParseError> {
+        let mut l = Lexer::new(input);
+        let mut p = Parser::new(&mut l);
+        p.expression(0)
+    }
+
     // =============================================================================================
 
     pub fn expression(&mut self, precedence: u8) -> Result<Expression, ParseError> {

@@ -20,18 +20,15 @@ pub fn run() {
     loop {
         let input = get_input("🌱>> ");
 
-        match run_one(input) {
+        match run_one(&input) {
             Ok(res) => println!("{:?}", res),
             Err(err) => println!("Error: {:?}", err)
         }
     }
 }
 
-fn run_one(input: String) -> Result<Value, AnyErr> {
-    let mut l = Lexer::new(&input);
-    let mut p = Parser::new(&mut l);
-
-    let expr = p.expression(0).map_err(AnyErr::ParseError)?;
+fn run_one(input: &str) -> Result<Value, AnyErr> {
+    let expr = Parser::parse(input).map_err(AnyErr::ParseError)?;
     let code = compile(expr).map_err(AnyErr::CompileError)?;
 
     let vm = VM::new(code);
