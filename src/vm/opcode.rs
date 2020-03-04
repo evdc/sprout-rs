@@ -54,6 +54,10 @@ impl From<u8> for Op {
             v if v == Op::Eq as u8 => Op::Eq,
             v if v == Op::NotEq as u8 => Op::NotEq,
             v if v == Op::Not as u8 => Op::Not,
+
+            v if v == Op::GetGlobal as u8 => Op::GetGlobal,
+            v if v == Op::SetGlobal as u8 => Op::SetGlobal,
+
             _ => Op::Invalid
         }
     }

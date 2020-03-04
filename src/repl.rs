@@ -17,22 +17,23 @@ enum AnyErr {
 
 
 pub fn run() {
+    let mut vm = VM::new();
     loop {
         let input = get_input("🌱>> ");
 
-        match run_one(&input) {
-            Ok(res) => println!("{:?}", res),
-            Err(err) => println!("Error: {:?}", err)
-        }
+        let res = run_one(&mut vm, &input);
+
+        println!("{:?}", res)
     }
 }
 
-fn run_one(input: &str) -> Result<Value, AnyErr> {
+fn run_one(vm: &mut VM, input: &str) -> Result<Value, AnyErr> {
     let expr = Parser::parse(input).map_err(AnyErr::ParseError)?;
     let code = compile(expr).map_err(AnyErr::CompileError)?;
 
-    let vm = VM::new(code);
-    let res = vm.run().map_err(AnyErr::VMError)?;
+    println!("Code: {:?}", code);
+
+    let res = vm.run(code).map_err(AnyErr::VMError)?;
 
     Ok(res)
 }

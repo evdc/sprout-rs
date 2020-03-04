@@ -29,14 +29,19 @@ pub struct VM {
 
 impl VM {
     // Takes ownership of a Bytecode.
-    pub fn new(bytecode: Bytecode) -> Self {
-        VM { bytecode, ip: 0, stack: Vec::new(), globals: HashMap::new() }
+    pub fn new() -> Self {
+        VM { bytecode: Bytecode::new(), ip: 0, stack: Vec::new(), globals: HashMap::new() }
     }
 
-    pub fn run(mut self) -> VMResult {
+    pub fn run(&mut self, code: Bytecode) -> VMResult {
+        self.bytecode = code;
+        self.ip = 0;
+
         loop {
             let byte = self.read_byte();
             let op = Op::from(byte);
+
+            // println!("Op: {:?} Stack: {:#?}", op, self.stack);
 
             match op {
                 Op::Return => return Ok(self.pop()?),
@@ -170,10 +175,11 @@ impl VM {
                 // Crafting Interpreters unsafely assumes the constant referred to is a string
                 // Rust won't let us assume this, so we have to `if let` which may slow us down
                 // This may be a justification for unsafe code: we trust the compiler.
+                // Anyway: This leaves the rvalue on the stack, because assigning is an expression
                 Op::SetGlobal => {
                     if let Value::Str(name) = self.read_constant() {
-                        let val = self.pop()?;
-                        self.globals.insert(name, val);
+                        let val = self.peek()?;
+                        self.globals.insert(name, val.clone());
                     } else {
                         return Err(VMError::IncorrectBytecode)
                     }
