@@ -2,9 +2,10 @@ use crate::compiler::lexer::Lexer;
 use crate::compiler::token::{Token, TokenType};
 use crate::compiler::expression::*;
 
+type Precedence = i16;
 type ParseResult = Result<Expression, ParseError>;
 type PrefixFnType = fn(&mut Parser, Token) -> ParseResult;
-type InfixFnType = fn(&mut Parser, Token, Expression, u8) -> ParseResult;
+type InfixFnType = fn(&mut Parser, Token, Expression, Precedence) -> ParseResult;
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
@@ -16,7 +17,7 @@ pub enum ParseError {
 }
 
 struct ParseRule {
-    precedence: u8,
+    precedence: Precedence,
     prefix_fn: Option<PrefixFnType>,
     infix_fn: Option<InfixFnType>
 }
@@ -47,12 +48,12 @@ fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::unary(token, value))
 }
 
-fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
+fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: Precedence) -> ParseResult {
     let right = parser.expression(precedence)?;
     Ok(Expression::binary(token, left, right))
 }
 
-fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence: u8) -> ParseResult {
+fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence: Precedence) -> ParseResult {
     let right = parser.expression(precedence-1)?;
     Ok(Expression::binary(token, left, right))
 }
@@ -112,7 +113,9 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
 
         // Ignored tokens, whose parse rule should never be invoked.
-        _ => ParseRule { precedence: 0, prefix_fn: None, infix_fn: None }
+        // If precedence is bottom (-1) here, it means that after we hit an illegal token we just stop and successfully return whatever we got so far
+        // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
+        _ => ParseRule { precedence: 99, prefix_fn: None, infix_fn: None }
     }
 }
 
@@ -142,7 +145,7 @@ impl<'a> Parser<'a> {
 
     // =============================================================================================
 
-    pub fn expression(&mut self, precedence: u8) -> Result<Expression, ParseError> {
+    pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut token = self.advance();
 
         let mut parsed_so_far = get_parse_rule(&token).prefix_fn(self, token)?;

@@ -59,17 +59,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-//    fn read_newlines(&mut self) {
-//        loop {
-//            if self.peek() != Some(&'\n') {
-//                bre
-//            } else {
-//                self.advance();
-//                self.current_line += 1;
-//            }
-//        }
-//    }
-
     fn read_name(&mut self, ch: char) -> String {
         let mut name = String::new();
         name.push(ch);
@@ -123,13 +112,18 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
         let col = self.current_col;
 
-        // A run of any number of newlines gets collapsed into a single newline token.
-//        while self.peek() == Some(&'\n') {
-//            self.advance();
-//            return Token { typ: TokenType::Newline, line: self.current_line, col: col}
-//        }
-
         let typ = match self.advance() {
+            Some('\n') => {
+                // A run of any number of newlines gets collapsed into a single newline token.
+                self.current_line += 1;
+                self.current_col = 0;
+                while self.peek() == Some(&'\n') {
+                    self.input.next();
+                    self.current_line += 1;
+                }
+                TokenType::Newline
+            }
+
             Some('+') => TokenType::Plus,
             Some('-') => TokenType::Minus,
             Some('*') => TokenType::Star,
@@ -229,7 +223,7 @@ fn test_lexer_comparisons() {
 
 #[test]
 fn test_lexer_newlines() {
-    let input = "2 + 3\n\n\n3+4\n";
+    let input = "2 + 3\n\n \n3+4\n";
     let lex = Lexer::new(input);
 
     let tokens: Vec<Token> = lex.into_iter().collect();
@@ -237,15 +231,16 @@ fn test_lexer_newlines() {
     println!("{:#?}", tokens);
 
     assert_eq!(tokens, vec![
-        tok(TokenType::LiteralNum(2.0)),
-        tok(TokenType::Plus),
-        tok(TokenType::LiteralNum(3.0)),
-        tok(TokenType::Newline),
-        tok(TokenType::LiteralNum(3.0)),
-        tok(TokenType::Plus),
-        tok(TokenType::LiteralNum(4.0)),
-        tok(TokenType::Newline),
-    ])
+        Token { typ: TokenType::LiteralNum(2.0), line: 0, col: 0 },
+        Token { typ: TokenType::Plus, line: 0, col: 2 },
+        Token { typ: TokenType::LiteralNum(3.0), line: 0, col: 4 },
+        Token { typ: TokenType::Newline, line: 2, col: 5 },
+        Token { typ: TokenType::Newline, line: 3, col: 1 },
+        Token { typ: TokenType::LiteralNum(3.0), line: 3, col: 0 },
+        Token { typ: TokenType::Plus, line: 3, col: 1 },
+        Token { typ: TokenType::LiteralNum(4.0), line: 3, col: 2 },
+        Token { typ: TokenType::Newline, line: 4, col: 3 }]
+    )
 }
 
 
