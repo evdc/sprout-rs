@@ -18,27 +18,20 @@ pub enum ParseError {
 
 struct ParseRule {
     precedence: Precedence,
-    prefix_fn: Option<PrefixFnType>,
-    infix_fn: Option<InfixFnType>
-}
-
-impl ParseRule {
-    fn prefix_fn(&self, parser: &mut Parser, token: Token) -> ParseResult {
-        match self.prefix_fn {
-            None => Err(ParseError::NoPrefixFn(token)),
-            Some(f) => f(parser, token)
-        }
-    }
-
-    fn infix_fn(&self, parser: &mut Parser, token: Token, left: Expression) -> ParseResult {
-        match self.infix_fn {
-            None => Err(ParseError::NoInfixFn(token)),
-            Some(f) => f(parser, token, left, self.precedence)
-        }
-    }
+    prefix_fn: PrefixFnType,
+    infix_fn: InfixFnType
 }
 
 // These functions take ownership of a Token and give it to an Expression
+
+fn prefix_error(_parser: &mut Parser, token: Token) -> ParseResult {
+    Err(ParseError::NoPrefixFn(token))
+}
+
+fn infix_error(_parser: &mut Parser, token: Token, _left: Expression, _precedence: Precedence) -> ParseResult {
+    Err(ParseError::NoInfixFn(token))
+}
+
 fn literal(_parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::literal(token))
 }
@@ -63,7 +56,7 @@ fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
     parser.consume(TokenType::RParen).and(Ok(expr))
 }
 
-fn assignment(parser: &mut Parser, token: Token) -> ParseResult {
+fn var_declaration(parser: &mut Parser, token: Token) -> ParseResult {
     // Consume identifier name, '=', and expression. (Variables must be initialized)
     let identifier_token = parser.advance();
     if let TokenType::Name(name) = identifier_token.typ {
@@ -77,45 +70,43 @@ fn assignment(parser: &mut Parser, token: Token) -> ParseResult {
     }
 }
 
-// todo: instead of None where there is no valid parse rule (a holdover from Python),
-// use a parsing function that returns an error; it'll have more context
 fn get_parse_rule(token: &Token) -> ParseRule {
     match token.typ {
         // Arithmetic ops
-        TokenType::Power    => ParseRule { precedence: 50, prefix_fn: None, infix_fn: Some(infix_rassoc) },
-        TokenType::Star     => ParseRule { precedence: 40, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Slash    => ParseRule { precedence: 40, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Minus    => ParseRule { precedence: 30, prefix_fn: Some(unary_prefix), infix_fn: Some(infix) },
-        TokenType::Plus     => ParseRule { precedence: 30, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Power    => ParseRule { precedence: 50, prefix_fn: prefix_error, infix_fn: infix_rassoc },
+        TokenType::Star     => ParseRule { precedence: 40, prefix_fn: prefix_error, infix_fn: infix },
+        TokenType::Slash    => ParseRule { precedence: 40, prefix_fn: prefix_error, infix_fn: infix },
+        TokenType::Minus    => ParseRule { precedence: 30, prefix_fn: unary_prefix, infix_fn: infix },
+        TokenType::Plus     => ParseRule { precedence: 30, prefix_fn: prefix_error, infix_fn: infix },
 
         // Comparisons
         TokenType::Lt       |
         TokenType::LtEq     |
         TokenType::Gt       |
-        TokenType::GtEq     => ParseRule { precedence: 20, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::GtEq     => ParseRule { precedence: 20, prefix_fn: prefix_error, infix_fn: infix },
         TokenType::NotEq    |
-        TokenType::Eq       => ParseRule { precedence: 15, prefix_fn: None, infix_fn: Some(infix) },
+        TokenType::Eq       => ParseRule { precedence: 15, prefix_fn: prefix_error, infix_fn: infix },
 
         // Logical ops
-        TokenType::And      => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Or       => ParseRule { precedence: 10, prefix_fn: None, infix_fn: Some(infix) },
-        TokenType::Not      => ParseRule { precedence: 10, prefix_fn: Some(unary_prefix), infix_fn: None },
+        TokenType::And      => ParseRule { precedence: 10, prefix_fn: prefix_error, infix_fn: infix },
+        TokenType::Or       => ParseRule { precedence: 10, prefix_fn: prefix_error, infix_fn: infix },
+        TokenType::Not      => ParseRule { precedence: 10, prefix_fn: unary_prefix, infix_fn: infix_error },
 
         // Literals
         TokenType::LiteralNum(_)  |
         TokenType::LiteralStr(_)  |
         TokenType::LiteralBool(_) |
-        TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+        TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
-        TokenType::Let      => ParseRule { precedence: 0, prefix_fn: Some(assignment), infix_fn: None },
-        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: Some(literal), infix_fn: None },
+        TokenType::Let      => ParseRule { precedence: 0, prefix_fn: var_declaration, infix_fn: infix_error },
+        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
-        TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: Some(grouping), infix_fn: None },
+        TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: grouping, infix_fn: infix_error },
 
         // Ignored tokens, whose parse rule should never be invoked.
         // If precedence is bottom (-1) here, it means that after we hit an illegal token we just stop and successfully return whatever we got so far
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
-        _ => ParseRule { precedence: -1, prefix_fn: None, infix_fn: None }
+        _ => ParseRule { precedence: -1, prefix_fn: prefix_error, infix_fn: infix_error }
     }
 }
 
@@ -165,11 +156,11 @@ impl<'a> Parser<'a> {
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut token = self.advance();
 
-        let mut parsed_so_far = get_parse_rule(&token).prefix_fn(self, token)?;
+        let mut parsed_so_far = (get_parse_rule(&token).prefix_fn)(self, token)?;
 
         while precedence < get_parse_rule(&self.current_token).precedence {
             token = self.advance();
-            parsed_so_far = get_parse_rule(&token).infix_fn(self, token, parsed_so_far)?;
+            parsed_so_far = (get_parse_rule(&token).infix_fn)(self, token, parsed_so_far, precedence)?;
         }
 
         Ok(parsed_so_far)
