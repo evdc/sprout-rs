@@ -13,7 +13,7 @@ pub enum ParseError {
     NoPrefixFn(Token),
     NoInfixFn(Token),
     ExpectedIdentifier(Token),
-    ExpectedButFound(TokenType, TokenType)
+    ExpectedButFound(Vec<TokenType>, TokenType)
 }
 
 struct ParseRule {
@@ -115,7 +115,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         // Ignored tokens, whose parse rule should never be invoked.
         // If precedence is bottom (-1) here, it means that after we hit an illegal token we just stop and successfully return whatever we got so far
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
-        _ => ParseRule { precedence: 99, prefix_fn: None, infix_fn: None }
+        _ => ParseRule { precedence: -1, prefix_fn: None, infix_fn: None }
     }
 }
 
@@ -137,13 +137,30 @@ impl<'a> Parser<'a> {
         p
     }
 
-    pub fn parse(input: &str) -> Result<Expression, ParseError> {
+    pub fn parse(input: &str) -> Result<Statement, ParseError> {
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l);
-        p.expression(0)
+
+        // Parse a sequence of statements aka a block.
+        let mut statements: Vec<Box<Statement>> = Vec::new();
+        while !p.check(&TokenType::EOF) {
+            let st = p.statement()?;
+            statements.push(Box::new(st));
+        }
+        Ok(Statement::Block(statements))
     }
 
     // =============================================================================================
+
+    pub fn statement(&mut self) -> Result<Statement, ParseError> {
+        // later there will be more branches here.
+        let expr = self.expression(0)?;
+
+        self.consume(TokenType::Semicolon)?;
+        self.consume_many(TokenType::Newline);
+
+        Ok(Statement::Expression(expr))
+    }
 
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut token = self.advance();
@@ -171,7 +188,23 @@ impl<'a> Parser<'a> {
         if found.typ == expected {
             Ok(found)
         } else {
+            Err(ParseError::ExpectedButFound(vec![expected], found.typ))
+        }
+    }
+
+    fn consume_one_of(&mut self, expected: Vec<TokenType>) -> Result<Token, ParseError> {
+        let found = self.advance();
+        if expected.contains(&found.typ) {
+            Ok(found)
+        } else {
             Err(ParseError::ExpectedButFound(expected, found.typ))
+        }
+    }
+
+    fn consume_many(&mut self, expected: TokenType) {
+        // Consume zero or more of a token type, without returning them
+        while self.check(&expected) {
+            self.advance();
         }
     }
 
@@ -185,8 +218,8 @@ impl<'a> Parser<'a> {
 //    }
 
     #[inline]
-    fn check(&mut self, expected: TokenType) -> bool {
-        self.current_token.typ == expected
+    fn check(&mut self, expected: &TokenType) -> bool {
+        self.current_token.typ == *expected
     }
 }
 

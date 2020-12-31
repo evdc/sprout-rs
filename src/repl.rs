@@ -28,8 +28,8 @@ pub fn run() {
 }
 
 fn run_one(vm: &mut VM, input: &str) -> Result<Value, AnyErr> {
-    let expr = Parser::parse(input).map_err(AnyErr::ParseError)?;
-    let code = compile(expr).map_err(AnyErr::CompileError)?;
+    let statements = Parser::parse(input).map_err(AnyErr::ParseError)?;
+    let code = compile(statements).map_err(AnyErr::CompileError)?;
 
     println!("Code: {:?}", code);
 

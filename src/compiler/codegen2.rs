@@ -109,12 +109,30 @@ fn compile_into(expr: Expression, bytecode: &mut Bytecode) -> CompileResult {
     }
 }
 
-pub fn compile(expr: Expression) -> Result<Bytecode, CompileError> {
+pub fn compile_statement(statement: Statement, bytecode: &mut Bytecode) -> CompileResult {
+    match statement {
+        Statement::Block(statements) => {
+            for st in statements {
+                compile_statement(*st, bytecode)?;
+            }
+        },
+
+        Statement::Expression(expr) => {
+            compile_into(expr, bytecode)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn compile(statement: Statement) -> Result<Bytecode, CompileError> {
     let mut code = Bytecode::new();
-    compile_into(expr, &mut code)?;
+    compile_statement(statement, &mut code)?;
     code.add_byte(Op::Return as u8, 0);
     Ok(code)
 }
+
+
 
 #[cfg(test)]
 mod test {
@@ -124,12 +142,10 @@ mod test {
 
     #[test]
     fn test_compile() {
-        let input = "let foo = 3 + 4";
-        let mut l = Lexer::new(input);
-        let mut p = Parser::new(&mut l);
-        let expr = p.expression(0).unwrap();
+        let input = "let foo = 3 + 4;";
+        let ast = Parser::parse(input).unwrap();
 
-        let result = compile(expr);
+        let result = compile(ast);
         println!("{:?}", result);
     }
 }

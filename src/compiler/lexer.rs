@@ -143,7 +143,7 @@ impl<'a> Lexer<'a> {
                 TokenType::LiteralStr(s)
             },
 
-            Some(ch @ _) => {
+            Some(ch) => {
                 if is_letter(ch) {
                     let name = self.read_name(ch);
                     lookup_keyword(&name)

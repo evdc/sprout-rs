@@ -53,3 +53,10 @@ impl Expression {
         Expression::Binary(BinaryExpr { token, left: Box::new(left), right: Box::new(right) })
     }
 }
+
+// A series of statements makes up your program
+#[derive(Debug)]
+pub enum Statement {
+    Expression(Expression),
+    Block(Vec<Box<Statement>>)
+}
