@@ -55,7 +55,7 @@ impl Compile for LiteralExpr {
 
 impl Compile for AssignExpr {
     fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        compile_into(*self.value, bytecode)?;
+        self.value.compile_into(bytecode)?;
         let const_idx = bytecode.add_constant(Value::Str(self.name.clone()));
         bytecode.add_bytes(Op::SetGlobal as u8, const_idx, self.token.line);
         Ok(())
@@ -64,7 +64,7 @@ impl Compile for AssignExpr {
 
 impl Compile for UnaryExpr {
     fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        compile_into(*self.value, bytecode)?;
+        self.value.compile_into(bytecode)?;
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
             TokenType::Not   => Op::Not,
@@ -79,33 +79,36 @@ impl Compile for UnaryExpr {
 impl Compile for BinaryExpr {
     fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
         let line = self.token.line;
-        compile_into(*self.left, bytecode)?;
-        compile_into(*self.right, bytecode)?;
-        match self.token.typ {
-            TokenType::Plus     => bytecode.add_byte(Op::Add as u8, line),
-            TokenType::Minus    => bytecode.add_byte(Op::Sub as u8, line),
-            TokenType::Star     => bytecode.add_byte(Op::Mul as u8, line),
-            TokenType::Slash    => bytecode.add_byte(Op::Div as u8, line),
-            TokenType::Power    => bytecode.add_byte(Op::Pow as u8, line),
-            TokenType::Lt       => bytecode.add_byte(Op::Lt as u8, line),
-            TokenType::LtEq     => bytecode.add_byte(Op::LtEq as u8, line),
-            TokenType::Gt       => bytecode.add_byte(Op::Gt as u8, line),
-            TokenType::GtEq     => bytecode.add_byte(Op::GtEq as u8, line),
-            TokenType::Eq       => bytecode.add_byte(Op::Eq as u8, line),
-            TokenType::NotEq    => bytecode.add_byte(Op::NotEq as u8, line),
+        self.left.compile_into(bytecode)?;
+        self.right.compile_into(bytecode)?;
+        let op = match self.token.typ {
+            TokenType::Plus     => Op::Add,
+            TokenType::Minus    => Op::Sub,
+            TokenType::Star     => Op::Mul,
+            TokenType::Slash    => Op::Div,
+            TokenType::Power    => Op::Pow,
+            TokenType::Lt       => Op::Lt,
+            TokenType::LtEq     => Op::LtEq,
+            TokenType::Gt       => Op::Gt,
+            TokenType::GtEq     => Op::GtEq,
+            TokenType::Eq       => Op::Eq,
+            TokenType::NotEq    => Op::NotEq,
 
             _ => return Err(CompileError::CompileError("Unexpected binary token".to_string()))
-        }
+        };
+        bytecode.add_byte(op as u8, line);
         Ok(())
     }
 }
 
-fn compile_into(expr: Expression, bytecode: &mut Bytecode) -> CompileResult {
-    match expr {
-        Expression::Literal(expr) => expr.compile_into(bytecode),
-        Expression::Unary(expr) => expr.compile_into(bytecode),
-        Expression::Assign(expr) => expr.compile_into(bytecode),
-        Expression::Binary(expr) => expr.compile_into(bytecode)
+impl Compile for Expression {
+    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
+        match self {
+            Expression::Literal(expr) => expr.compile_into(bytecode),
+            Expression::Unary(expr)   => expr.compile_into(bytecode),
+            Expression::Binary(expr)  => expr.compile_into(bytecode),
+            Expression::Assignment(expr) => expr.compile_into(bytecode)
+        }
     }
 }
 
@@ -118,7 +121,7 @@ pub fn compile_statement(statement: Statement, bytecode: &mut Bytecode) -> Compi
         },
 
         Statement::Expression(expr) => {
-            compile_into(expr, bytecode)?;
+            expr.compile_into(bytecode)?;
         }
     }
 

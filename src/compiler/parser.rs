@@ -150,7 +150,7 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::Semicolon)?;
         self.consume_many(TokenType::Newline);
 
-        Ok(Statement::Expression(expr))
+        Ok(Statement::Expression(Box::new(expr)))
     }
 
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {

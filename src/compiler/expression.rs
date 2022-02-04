@@ -31,32 +31,33 @@ pub struct BinaryExpr {
 #[derive(Debug)]
 pub enum Expression {
     Literal(LiteralExpr),
-    Assign(AssignExpr),
     Unary(UnaryExpr),
-    Binary(BinaryExpr)
+    Binary(BinaryExpr),
+    Assignment(AssignExpr)
 }
 
-// These constructor functions just reduce some of the boilerplate of instantiating an enum variant
-// + a struct of the same name. It could be a macro
 impl Expression {
-    pub fn literal(token: Token) -> Expression { Expression::Literal(LiteralExpr { token }) }
-
-    pub fn assign(token: Token, name: String, value: Expression) -> Expression {
-        Expression::Assign(AssignExpr { token, name, value: Box::new(value) })
+    // convenience constructors
+    pub fn literal(token: Token) -> Self {
+        Expression::Literal(LiteralExpr { token })
     }
 
-    pub fn unary(token: Token, value: Expression) -> Expression {
+    pub fn unary(token: Token, value: Expression) -> Self {
         Expression::Unary(UnaryExpr { token, value: Box::new(value) })
     }
 
-    pub fn binary(token: Token, left: Expression, right: Expression) -> Expression {
+    pub fn binary(token: Token, left: Expression, right: Expression) -> Self {
         Expression::Binary(BinaryExpr { token, left: Box::new(left), right: Box::new(right) })
+    }
+
+    pub fn assign(token: Token, name: String, right: Expression) -> Self {
+        Expression::Assignment(AssignExpr { token, name, value: Box::new(right) })
     }
 }
 
 // A series of statements makes up your program
 #[derive(Debug)]
 pub enum Statement {
-    Expression(Expression),
+    Expression(Box<Expression>),
     Block(Vec<Box<Statement>>)
 }
