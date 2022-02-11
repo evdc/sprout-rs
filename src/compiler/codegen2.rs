@@ -3,8 +3,6 @@ use super::token::TokenType;
 
 use crate::vm::value::Value;
 use crate::vm::opcode::Op;
-use crate::vm::bytecode::Bytecode;
-
 
 
 #[derive(Debug)]
@@ -12,75 +10,66 @@ pub enum CompileError {
     CompileError(String)
 }
 
-type CompileResult = Result<(), CompileError>;
+pub type Code = Vec<Op>;
 
-fn write_constant(bytecode: &mut Bytecode, value: Value, line: u32) {
-    let idx = bytecode.add_constant(value);
-    bytecode.add_bytes(Op::LoadConstant as u8, idx, line);
-}
+type CompileResult = Result<Code, CompileError>;
 
 // This pure-function variant may not work with the state I assume a Compiler needs to keep?
 trait Compile {
     // Takes ownership of self, an Expression, and destroys it
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult;
+    fn compile(self) -> CompileResult;
 }
 
+// todo: we need a new way to carry over line/col information into the VM
 
-// note: we need to have an "emit", "emit_constant" etc. fn in scope
 impl Compile for LiteralExpr {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        let line = self.token.line;
-        match self.token.typ {
-            TokenType::LiteralNull => bytecode.add_byte(Op::LoadNull as u8, line),
+    fn compile(self) -> CompileResult {
+        let op = match self.token.typ {
+            TokenType::LiteralNull => Op::LoadNull,
             TokenType::LiteralBool(b) => {
                 if b == true {
-                    bytecode.add_byte(Op::LoadTrue as u8, line)
+                    Op::LoadTrue
                 } else {
-                    bytecode.add_byte(Op::LoadFalse as u8, line)
+                    Op::LoadFalse
                 }
             },
-            TokenType::LiteralNum(n) => write_constant(bytecode, Value::Num(n), line),
-            TokenType::LiteralStr(s) => write_constant(bytecode, Value::Str(s.clone()), line),
+            TokenType::LiteralNum(n) => Op::LoadConstant(Value::Num(n)),
+            TokenType::LiteralStr(s) => Op::LoadConstant(Value::Str(s.clone())),
 
-            TokenType::Name(name) => {
-                let global_idx = bytecode.add_constant(Value::Str(name.clone()));
-                bytecode.add_bytes(Op::GetGlobal as u8, global_idx, line);
-            }
+            TokenType::Name(name) => Op::GetGlobal(name),
 
             _ => return Err(CompileError::CompileError("Unexpected literal token".to_string()))
-        }
-        Ok(())
+        };
+        Ok(vec![op])
     }
 }
 
 impl Compile for AssignExpr {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        self.value.compile_into(bytecode)?;
-        let const_idx = bytecode.add_constant(Value::Str(self.name.clone()));
-        bytecode.add_bytes(Op::SetGlobal as u8, const_idx, self.token.line);
-        Ok(())
+    fn compile(self) -> CompileResult {
+        let mut code = self.value.compile()?;
+        code.push(Op::SetGlobal(self.name.clone()));
+        Ok(code)
     }
 }
 
 impl Compile for UnaryExpr {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        self.value.compile_into(bytecode)?;
+    fn compile(self) -> CompileResult {
+        let mut code = self.value.compile()?;
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
             TokenType::Not   => Op::Not,
 
             _ => return Err(CompileError::CompileError("Unexpected unary token".to_string()))
         };
-        bytecode.add_byte(op as u8, self.token.line);
-        Ok(())
+        code.push(op);
+        Ok(code)
     }
 }
 
 impl Compile for BinaryExpr {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        let line = self.token.line;
-        self.left.compile_into(bytecode)?;
-        self.right.compile_into(bytecode)?;
+    fn compile(self) -> CompileResult {
+        let mut code = self.left.compile()?;
+        code.extend(self.right.compile()?);
         let op = match self.token.typ {
             TokenType::Plus     => Op::Add,
             TokenType::Minus    => Op::Sub,
@@ -96,55 +85,65 @@ impl Compile for BinaryExpr {
 
             _ => return Err(CompileError::CompileError("Unexpected binary token".to_string()))
         };
-        bytecode.add_byte(op as u8, line);
-        Ok(())
+        code.push(op);
+        Ok(code)
     }
 }
 
 impl Compile for ConditionalExpr {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
-        let line = self.token.line;
-        self.condition_expr.compile_into(bytecode)?;
-        // todo: emit a jump, the true branch, another jump, the false branch ...
-        Ok(())
+    fn compile(self) -> CompileResult {
+        // We can avoid patching jumps here by determining their lengths ahead of time.
+        let mut code = self.condition_expr.compile()?;
+
+        let true_code = self.true_expr.compile()?;
+        code.push(Op::JumpIfFalse(true_code.len() + 1)); // long enough to skip the true branch
+        code.extend(true_code);
+
+        if let Some(false_branch) = *self.false_expr {
+            let false_code = false_branch.compile()?;
+            // append an absolute jump to the end of the true branch
+            code.push(Op::Jump(false_code.len()));
+            code.extend(false_code);
+        } else {
+            // implicit "else null" at the end
+            code.push(Op::Jump(1));
+            code.push(Op::LoadNull);
+        }
+
+        Ok(code)
     }
 }
 
 impl Compile for Expression {
-    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
+    fn compile(self) -> CompileResult {
         match self {
-            Expression::Literal(expr) => expr.compile_into(bytecode),
-            Expression::Unary(expr)   => expr.compile_into(bytecode),
-            Expression::Binary(expr)  => expr.compile_into(bytecode),
-            Expression::Assignment(expr)    => expr.compile_into(bytecode),
-            Expression::Conditional(expr)   => expr.compile_into(bytecode)
+            Expression::Literal(expr) => expr.compile(),
+            Expression::Unary(expr)   => expr.compile(),
+            Expression::Binary(expr)  => expr.compile(),
+            Expression::Assignment(expr)    => expr.compile(),
+            Expression::Conditional(expr)   => expr.compile(),
         }
     }
 }
 
-pub fn compile_statement(statement: Statement, bytecode: &mut Bytecode) -> CompileResult {
+pub fn compile(statement: Statement) -> CompileResult {
+    let mut code = Vec::new();
+
     match statement {
         Statement::Block(statements) => {
             for st in statements {
-                compile_statement(*st, bytecode)?;
+                code.extend(compile(*st)?);
             }
         },
 
         Statement::Expression(expr) => {
-            expr.compile_into(bytecode)?;
+            code.extend(expr.compile()?);
         }
     }
 
-    Ok(())
-}
-
-pub fn compile(statement: Statement) -> Result<Bytecode, CompileError> {
-    let mut code = Bytecode::new();
-    compile_statement(statement, &mut code)?;
-    code.add_byte(Op::Return as u8, 0);
+    code.push(Op::Return);
     Ok(code)
 }
-
 
 
 #[cfg(test)]

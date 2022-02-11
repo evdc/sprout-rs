@@ -1,5 +1,5 @@
 use crate::vm::opcode::Op;
-use crate::vm::bytecode::Bytecode;
+use crate::compiler::codegen2::Code;
 use crate::vm::value::Value;
 
 use std::collections::HashMap;
@@ -16,40 +16,31 @@ pub enum VMError {
 pub type VMResult = Result<Value, VMError>;
 
 pub struct VM {
-    bytecode: Bytecode,
+    code: Code,
     ip: usize,
     stack: Vec<Value>,
     globals: HashMap<String, Value>,
 }
 
-// Possibly easier/cleaner to:
-// - Operate directly on Op variants, where the ones with arguments carry their arg in the constructor
-// - Serialize/deserialize these from bytes once, at program load, rather than consistently
-// imposes more startup overhead but maybe less runtime overhead than doing Op::from(byte) every loop? try benchmarking
-
 impl VM {
-    // Takes ownership of a Bytecode.
     pub fn new() -> Self {
-        VM { bytecode: Bytecode::new(), ip: 0, stack: Vec::new(), globals: HashMap::new() }
+        VM { code: Vec::new(), ip: 0, stack: Vec::new(), globals: HashMap::new() }
     }
 
-    pub fn run(&mut self, code: Bytecode) -> VMResult {
-        self.bytecode = code;
+    pub fn run(&mut self, code: Code) -> VMResult {
+        self.code = code;
         self.ip = 0;
 
         loop {
-            let byte = self.read_byte();
-            let op = Op::from(byte);
+            let op = self.code[self.ip].clone();
+            self.ip += 1;
 
             // println!("Op: {:?} Stack: {:#?}", op, self.stack);
 
             match op {
                 Op::Return => return Ok(self.pop()?),
 
-                Op::LoadConstant => {
-                    let v = self.read_constant();
-                    self.push(v)
-                },
+                Op::LoadConstant(val) => self.push(val.clone()),
                 Op::LoadFalse => self.push(Value::Bool(false)),
                 Op::LoadTrue => self.push(Value::Bool(true)),
                 Op::LoadNull => self.push(Value::Null),
@@ -176,26 +167,26 @@ impl VM {
                 // Rust won't let us assume this, so we have to `if let` which may slow us down
                 // This may be a justification for unsafe code: we trust the compiler.
                 // Anyway: This leaves the rvalue on the stack, because assigning is an expression
-                Op::SetGlobal => {
-                    if let Value::Str(name) = self.read_constant() {
-                        let val = self.peek()?;
-                        let val = val.clone();
-                        self.globals.insert(name, val);
-                    } else {
-                        return Err(VMError::IncorrectBytecode)
-                    }
+                Op::SetGlobal(name) => {
+                    let val = self.peek()?;
+                    let val = val.clone();
+                    self.globals.insert(name.clone(), val);
                 },
-                Op::GetGlobal => {
-                    if let Value::Str(name) = self.read_constant() {
-                        let val = self.globals.get(&name).ok_or(VMError::UndefinedVariable(name))?;
-                        let val = val.clone();
-                        self.push(val);
-                    } else {
-                        return Err(VMError::IncorrectBytecode)
-                    }
+                Op::GetGlobal(name) => {
+                    let val = self.globals.get(&name).ok_or(VMError::UndefinedVariable(name.clone()))?;
+                    let val = val.clone();
+                    self.push(val);
                 },
 
-                Op::Invalid => return Err(VMError::InvalidOpcode(byte))
+
+                Op::Jump(how_high) => {
+                    self.ip += how_high;
+                }
+                Op::JumpIfFalse(how_high) => {
+                    if self.pop()? == Value::Bool(false) {
+                        self.ip += how_high;
+                    }
+                }
             }
         }
     }
@@ -215,20 +206,6 @@ impl VM {
     #[inline]
     fn peek(&self) -> Result<&Value, VMError> {
         self.stack.last().ok_or(VMError::StackEmpty)
-    }
-
-    #[inline]
-    fn read_byte(&mut self) -> u8 {
-        let byte = self.bytecode.code[self.ip];
-        self.ip += 1;
-        byte
-    }
-
-    #[inline]
-    fn read_constant(&mut self) -> Value {
-        // we should be able to avoid cloning constants, right...?
-        let idx = self.read_byte() as usize;
-        self.bytecode.constants[idx].clone()
     }
 }
 
