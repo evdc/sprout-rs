@@ -22,6 +22,10 @@ fn lookup_keyword(s: &str) -> TokenType {
 
         "let"   => TokenType::Let,
 
+        "if"    => TokenType::If,
+        "then"  => TokenType::Then,
+        "else"  => TokenType::Else,
+
         _ => TokenType::Name(s.to_string())
     }
 }

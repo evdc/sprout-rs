@@ -1,4 +1,3 @@
-use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::{Parser, ParseError};
 use crate::compiler::codegen2::{compile, CompileError};
 use crate::vm::vm::{VM, VMError};

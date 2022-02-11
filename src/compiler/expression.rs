@@ -29,11 +29,20 @@ pub struct BinaryExpr {
 }
 
 #[derive(Debug)]
+pub struct ConditionalExpr {
+    pub token: Token,
+    pub condition_expr: Box<Expression>,
+    pub true_expr: Box<Expression>,
+    pub false_expr: Box<Option<Expression>>     // should this really be a Option<Box<Expression>>?
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Literal(LiteralExpr),
     Unary(UnaryExpr),
     Binary(BinaryExpr),
-    Assignment(AssignExpr)
+    Assignment(AssignExpr),
+    Conditional(ConditionalExpr)
 }
 
 impl Expression {
@@ -52,6 +61,15 @@ impl Expression {
 
     pub fn assign(token: Token, name: String, right: Expression) -> Self {
         Expression::Assignment(AssignExpr { token, name, value: Box::new(right) })
+    }
+
+    pub fn conditional(token: Token, condition_expr: Expression, true_expr: Expression, false_expr: Option<Expression>) -> Self {
+        Expression::Conditional(ConditionalExpr {
+            token,
+            condition_expr: Box::new(condition_expr),
+            true_expr: Box::new(true_expr),
+            false_expr: Box::new(false_expr)
+        })
     }
 }
 

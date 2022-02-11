@@ -70,6 +70,21 @@ fn var_declaration(parser: &mut Parser, token: Token) -> ParseResult {
     }
 }
 
+fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
+    // token is the "if" token here
+    let condition_expr = parser.expression(0)?;
+    parser.consume(TokenType::Then)?;
+    let true_expr = parser.expression(0)?;
+    println!("{:#?}", parser.current_token);
+    let false_expr = if parser.check(&TokenType::Else) {
+        parser.advance();
+        Some(parser.expression(0)?)
+    } else {
+        None
+    };
+    Ok(Expression::conditional(token, condition_expr, true_expr, false_expr))
+}
+
 fn get_parse_rule(token: &Token) -> ParseRule {
     match token.typ {
         // Arithmetic ops
@@ -101,10 +116,12 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::Let      => ParseRule { precedence: 0, prefix_fn: var_declaration, infix_fn: infix_error },
         TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
+        // If is an expression
+        TokenType::If       => ParseRule { precedence: 0, prefix_fn: conditional, infix_fn: infix_error },
+
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: grouping, infix_fn: infix_error },
 
         // Ignored tokens, whose parse rule should never be invoked.
-        // If precedence is bottom (-1) here, it means that after we hit an illegal token we just stop and successfully return whatever we got so far
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
         _ => ParseRule { precedence: -1, prefix_fn: prefix_error, infix_fn: infix_error }
     }
@@ -269,6 +286,15 @@ fn test_parser_error() {
     let mut p = Parser::new(&mut lex);
 
     let result = p.expression(0);
+
+    println!("{:#?}", result);
+}
+
+#[test]
+fn test_conditional() {
+    let input = "let foo = if true and 1 == 2 then \"wut\" else \"okay\";";
+
+    let result = Parser::parse(input);
 
     println!("{:#?}", result);
 }

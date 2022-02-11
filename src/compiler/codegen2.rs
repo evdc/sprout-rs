@@ -101,13 +101,23 @@ impl Compile for BinaryExpr {
     }
 }
 
+impl Compile for ConditionalExpr {
+    fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
+        let line = self.token.line;
+        self.condition_expr.compile_into(bytecode)?;
+        // todo: emit a jump, the true branch, another jump, the false branch ...
+        Ok(())
+    }
+}
+
 impl Compile for Expression {
     fn compile_into(self, bytecode: &mut Bytecode) -> CompileResult {
         match self {
             Expression::Literal(expr) => expr.compile_into(bytecode),
             Expression::Unary(expr)   => expr.compile_into(bytecode),
             Expression::Binary(expr)  => expr.compile_into(bytecode),
-            Expression::Assignment(expr) => expr.compile_into(bytecode)
+            Expression::Assignment(expr)    => expr.compile_into(bytecode),
+            Expression::Conditional(expr)   => expr.compile_into(bytecode)
         }
     }
 }

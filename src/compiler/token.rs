@@ -25,6 +25,10 @@ pub enum TokenType {
     Assign,
     Let,
 
+    If,
+    Then,
+    Else,
+
     LParen,
     RParen,
 

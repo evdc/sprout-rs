@@ -1,5 +1,4 @@
 use crate::vm::value::Value;
-use crate::vm::opcode::Op;
 
 #[derive(Debug)]
 pub struct Bytecode {
@@ -37,27 +36,27 @@ impl Bytecode {
     }
 }
 
-#[test]
-fn test_bytecode() {
-    let mut code = Bytecode::new();
-
-    code.add_constant(Value::Num(42.0));
-    code.add_byte(Op::Return as u8, 0);
-
-    println!("{:#?}", code);
-}
-
-#[test]
-fn test_bytecode_no_duplicate_constants() {
-    let mut code = Bytecode::new();
-
-    let idx1 = code.add_constant(Value::Str("Hello world!".to_owned()));
-    let idx2 = code.add_constant(Value::Str("A different string".to_owned()));
-    let idx3 = code.add_constant(Value::Str("Hello world!".to_owned()));
-    code.add_byte(Op::Return as u8, 0);
-
-    assert_eq!(idx1, idx3);
-    assert_ne!(idx1, idx2);
-
-    println!("{:#?}", code);
-}
+//#[test]
+//fn test_bytecode() {
+//    let mut code = Bytecode::new();
+//
+//    code.add_constant(Value::Num(42.0));
+//    code.add_byte(Op::Return as u8, 0);
+//
+//    println!("{:#?}", code);
+//}
+//
+//#[test]
+//fn test_bytecode_no_duplicate_constants() {
+//    let mut code = Bytecode::new();
+//
+//    let idx1 = code.add_constant(Value::Str("Hello world!".to_owned()));
+//    let idx2 = code.add_constant(Value::Str("A different string".to_owned()));
+//    let idx3 = code.add_constant(Value::Str("Hello world!".to_owned()));
+//    code.add_byte(Op::Return as u8, 0);
+//
+//    assert_eq!(idx1, idx3);
+//    assert_ne!(idx1, idx2);
+//
+//    println!("{:#?}", code);
+//}

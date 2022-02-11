@@ -179,7 +179,8 @@ impl VM {
                 Op::SetGlobal => {
                     if let Value::Str(name) = self.read_constant() {
                         let val = self.peek()?;
-                        self.globals.insert(name, val.clone());
+                        let val = val.clone();
+                        self.globals.insert(name, val);
                     } else {
                         return Err(VMError::IncorrectBytecode)
                     }
@@ -187,7 +188,8 @@ impl VM {
                 Op::GetGlobal => {
                     if let Value::Str(name) = self.read_constant() {
                         let val = self.globals.get(&name).ok_or(VMError::UndefinedVariable(name))?;
-                        self.push(val.clone());
+                        let val = val.clone();
+                        self.push(val);
                     } else {
                         return Err(VMError::IncorrectBytecode)
                     }
