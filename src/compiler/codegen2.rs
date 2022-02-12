@@ -69,7 +69,7 @@ impl Compile for UnaryExpr {
 impl Compile for BinaryExpr {
     fn compile(self) -> CompileResult {
         let mut code = self.left.compile()?;
-        code.extend(self.right.compile()?);
+        let right_code = self.right.compile()?;
         let op = match self.token.typ {
             TokenType::Plus     => Op::Add,
             TokenType::Minus    => Op::Sub,
@@ -82,9 +82,24 @@ impl Compile for BinaryExpr {
             TokenType::GtEq     => Op::GtEq,
             TokenType::Eq       => Op::Eq,
             TokenType::NotEq    => Op::NotEq,
+            TokenType::And      => {
+                // skip the right code if falsey
+                code.push(Op::JumpIfFalse(right_code.len() + 1));
+                code.push(Op::Pop);
+                code.extend(right_code);
+                return Ok(code);
+            },
+            TokenType::Or       => {
+                code.push(Op::JumpIfFalse(1));  // skip jump
+                code.push(Op::Jump(right_code.len() + 1));  // skip RHS + pop
+                code.push(Op::Pop);
+                code.extend(right_code);
+                return Ok(code);
+            }
 
             _ => return Err(CompileError::CompileError("Unexpected binary token".to_string()))
         };
+        code.extend(right_code);
         code.push(op);
         Ok(code)
     }
@@ -96,7 +111,8 @@ impl Compile for ConditionalExpr {
         let mut code = self.condition_expr.compile()?;
 
         let true_code = self.true_expr.compile()?;
-        code.push(Op::JumpIfFalse(true_code.len() + 1)); // long enough to skip the true branch
+        code.push(Op::JumpIfFalse(true_code.len() + 1)); // skip the true branch + the pop
+        code.push(Op::Pop);
         code.extend(true_code);
 
         if let Some(false_branch) = *self.false_expr {

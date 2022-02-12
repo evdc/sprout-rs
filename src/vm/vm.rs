@@ -181,12 +181,13 @@ impl VM {
 
                 Op::Jump(how_high) => {
                     self.ip += how_high;
-                }
+                },
                 Op::JumpIfFalse(how_high) => {
-                    if self.pop()? == Value::Bool(false) {
+                    if self.peek()? == &Value::Bool(false) {
                         self.ip += how_high;
                     }
                 }
+                Op::Pop    => { let _ = self.pop()?; },
             }
         }
     }

@@ -3,6 +3,7 @@ use crate::vm::value::Value;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Op {
     Return,
+    Pop,
 
     LoadConstant(Value),
     LoadNull,
