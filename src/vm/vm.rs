@@ -188,6 +188,24 @@ impl VM {
                     }
                 }
                 Op::Pop    => { let _ = self.pop()?; },
+
+                Op::Iter(size) => {
+                    // TOS is an iterable (currently only strings).
+                    // If it's nonempty, pop its next value and place it above on TOS.
+                    // If it's empty, pop it and jump forward by `size` to skip loop body.
+                    let it = self.stack.last_mut();
+                    if let Some(Value::Str(s)) = it {
+                        // get an iterator over chars. really we want graphemes, so use the unicode_segmentation crate
+                        if s.is_empty() {
+                            self.ip += size;
+                        } else {
+                            let new_s = Value::Str(s.remove(0).to_string());
+                            self.push(new_s);
+                        }
+                    } else {
+                        // error because it's not a string
+                    }
+                }
             }
         }
     }

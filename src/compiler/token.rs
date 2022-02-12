@@ -28,6 +28,8 @@ pub enum TokenType {
     If,
     Then,
     Else,
+    For,
+    In,
 
     LParen,
     RParen,

@@ -25,6 +25,8 @@ fn lookup_keyword(s: &str) -> TokenType {
         "if"    => TokenType::If,
         "then"  => TokenType::Then,
         "else"  => TokenType::Else,
+        "for"   => TokenType::For,
+        "in"    => TokenType::In,
 
         _ => TokenType::Name(s.to_string())
     }

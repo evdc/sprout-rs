@@ -85,6 +85,11 @@ fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::conditional(token, condition_expr, true_expr, false_expr))
 }
 
+fn for_expr(_parser: &mut Parser, _token: Token) -> ParseResult {
+    // let results = for NAME in EXPR do STATEMENTS end ???
+    todo!("need to add lists before we can use for-exprs");
+}
+
 fn get_parse_rule(token: &Token) -> ParseRule {
     match token.typ {
         // Arithmetic ops
@@ -118,6 +123,9 @@ fn get_parse_rule(token: &Token) -> ParseRule {
 
         // If is an expression
         TokenType::If       => ParseRule { precedence: 0, prefix_fn: conditional, infix_fn: infix_error },
+
+        // for expressions...?
+        TokenType::For      => ParseRule { precedence: 0, prefix_fn: for_expr, infix_fn: infix_error },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: grouping, infix_fn: infix_error },
 
