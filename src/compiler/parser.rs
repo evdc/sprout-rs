@@ -52,6 +52,8 @@ fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence:
 }
 
 fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
+    // Matches a ( in prefix position; in addition to defining a group, this may also define a tuple
+    // a bit hacky
     let expr = parser.expression(0)?;
     parser.consume(TokenType::RParen).and(Ok(expr))
 }
@@ -83,6 +85,48 @@ fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
         None
     };
     Ok(Expression::conditional(token, condition_expr, true_expr, false_expr))
+}
+
+fn identifier_list(parser: &mut Parser, token: Token) -> ParseResult {
+    // one or more Name. token is the first name token
+    let mut idents = vec![Expression::literal(token.clone())];
+    while !parser.check(&TokenType::EOF) {
+        if !parser.advance_if(TokenType::Comma) {
+            break;
+        }
+
+        // this fuckery would be easier if TokenType was a plain enum
+        // and token.val (say) was a separate field
+        if let TokenType::Name(_) = parser.current_token.typ {
+            let ident = Expression::literal(parser.current_token.clone());
+            idents.push(ident);
+            parser.advance();
+        } else {
+            return Err(ParseError::ExpectedIdentifier(parser.current_token.clone()));
+        };
+    }
+    // hacky?: if no commas found, return a single identifier
+    match idents.len() {
+        1 => Ok(Expression::literal(token)),
+        _ => Ok(Expression::identifier_list(token, idents))
+    }
+}
+
+fn arrow_func(parser: &mut Parser, token: Token, left: Expression, precedence: Precedence) -> ParseResult {
+    // left is the arguments, an IdentifierListExpression
+    // essentialy replace the "literal" rule for Name with "identifier_list"?
+    match left {
+        Expression::Literal(ref arg) => {
+            let args = IdentifierListExpr { token: token.clone(), identifiers: vec![left] };    // this is dumb
+            let body = parser.expression(0)?;
+            Ok(Expression::function(token, "func".to_string(), args, body))
+        }
+        Expression::IdentifierList(args) => {
+            let body = parser.expression(0)?;
+            Ok(Expression::function(token, "func".to_string(), args, body))
+        },
+        _ => Err(ParseError::ExpectedIdentifier(token))     // todo: this actually points to the wrong token
+    }
 }
 
 fn for_expr(_parser: &mut Parser, _token: Token) -> ParseResult {
@@ -119,10 +163,12 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
         TokenType::Let      => ParseRule { precedence: 0, prefix_fn: var_declaration, infix_fn: infix_error },
-        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
+        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: identifier_list, infix_fn: infix_error },
 
         // If is an expression
         TokenType::If       => ParseRule { precedence: 0, prefix_fn: conditional, infix_fn: infix_error },
+
+        TokenType::Arrow    => ParseRule { precedence: 5, prefix_fn: prefix_error, infix_fn: arrow_func},     // todo: what's the precedence?
 
         // for expressions...?
         TokenType::For      => ParseRule { precedence: 0, prefix_fn: for_expr, infix_fn: infix_error },
@@ -181,8 +227,9 @@ impl<'a> Parser<'a> {
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut token = self.advance();
 
-        let mut parsed_so_far = (get_parse_rule(&token).prefix_fn)(self, token)?;
+        let mut parsed_so_far = (get_parse_rule(&token).prefix_fn)(self, token.clone())?;
 
+        println!("{:?} {:?} {:?}", token.typ, self.current_token.typ, parsed_so_far);
         while precedence < get_parse_rule(&self.current_token).precedence {
             token = self.advance();
             parsed_so_far = (get_parse_rule(&token).infix_fn)(self, token, parsed_so_far, precedence)?;
@@ -224,14 +271,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-//    fn match_next(&mut self, expected: TokenType) -> bool {
-//        if !self.check(expected) {
-//            false
-//        } else {
-//            self.advance();
-//            true
-//        }
-//    }
+    fn advance_if(&mut self, expected: TokenType) -> bool {
+        if !self.check(&expected) {
+            false
+        } else {
+            self.advance();
+            true
+        }
+    }
 
     #[inline]
     fn check(&mut self, expected: &TokenType) -> bool {

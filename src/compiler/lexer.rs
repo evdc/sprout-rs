@@ -131,12 +131,13 @@ impl<'a> Lexer<'a> {
             }
 
             Some('+') => TokenType::Plus,
-            Some('-') => TokenType::Minus,
+            Some('-') => self.two_char_token('>', TokenType::Arrow, TokenType::Minus),
             Some('*') => TokenType::Star,
             Some('/') => TokenType::Slash,
             Some('^') => TokenType::Power,
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
+            Some(',') => TokenType::Comma,
             Some(';') => TokenType::Semicolon,
 
             Some('=') => self.two_char_token('=', TokenType::Eq, TokenType::Assign),

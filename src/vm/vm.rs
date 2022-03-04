@@ -15,6 +15,7 @@ pub enum VMError {
 
 pub type VMResult = Result<Value, VMError>;
 
+
 pub struct VM {
     code: Code,
     ip: usize,
@@ -183,7 +184,7 @@ impl VM {
                     self.ip += how_high;
                 },
                 Op::JumpIfFalse(how_high) => {
-                    if self.peek()? == &Value::Bool(false) {
+                    if self.peek()?.falsey() {
                         self.ip += how_high;
                     }
                 }

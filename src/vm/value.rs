@@ -3,10 +3,41 @@
 // Defining strings this way (in a Box) is in line with the Crafting Interpreters tutorial, and others,
 // but counter to the everything-in-a-database design hypothesis.
 
+use crate::compiler::codegen2::Code;
+
+
+// todo: can we put Function/String behind a single u64 or ptr for efficiency
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
     Num(f64),
-    Str(String)     // Already a heap type: we don't need to box it
+    Str(String),
+    Function(Function)
+}
+
+// so equality is same name/arity AND same code exactly ??
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    code: Code,
+    arity: u8,
+    name: String
+}
+
+
+impl Function {
+    pub fn new() -> Self {
+        Function { code: Vec::new(), arity: 0, name: String::new() }
+    }
+}
+
+impl Value {
+    pub fn falsey(&self) -> bool {
+        match self {
+            Value::Null => true,
+            Value::Bool(false) => true,
+            Value::Num(0f64) => true,
+            _ => false
+        }
+    }
 }

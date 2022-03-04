@@ -130,6 +130,12 @@ impl Compile for ConditionalExpr {
     }
 }
 
+impl Compile for FunctionExpr {
+    fn compile(self) -> CompileResult {
+        todo!("fuck")
+    }
+}
+
 impl Compile for Expression {
     fn compile(self) -> CompileResult {
         match self {
@@ -138,6 +144,10 @@ impl Compile for Expression {
             Expression::Binary(expr)  => expr.compile(),
             Expression::Assignment(expr)    => expr.compile(),
             Expression::Conditional(expr)   => expr.compile(),
+            Expression::Function(expr)      => expr.compile(),
+            Expression::IdentifierList(_expr) => Err(CompileError::CompileError(
+                "you shouldn't be compiling one of these directly".to_string()
+            ))
         }
     }
 }

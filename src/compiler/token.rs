@@ -31,8 +31,11 @@ pub enum TokenType {
     For,
     In,
 
+    Arrow,
+
     LParen,
     RParen,
+    Comma,
 
     Semicolon,
     Newline,
