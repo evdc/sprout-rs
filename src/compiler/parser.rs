@@ -51,11 +51,22 @@ fn infix_rassoc(parser: &mut Parser, token: Token, left: Expression, precedence:
     Ok(Expression::binary(token, left, right))
 }
 
-fn grouping(parser: &mut Parser, _token: Token) -> ParseResult {
+fn grouping(parser: &mut Parser, token: Token) -> ParseResult {
     // Matches a ( in prefix position; in addition to defining a group, this may also define a tuple
-    // a bit hacky
     let expr = parser.expression(0)?;
-    parser.consume(TokenType::RParen).and(Ok(expr))
+    let mut exprs = vec![expr];
+    while parser.check(&TokenType::Comma) & !parser.check(&TokenType::EOF) {
+        parser.advance();   // eat the comma
+        let expr = parser.expression(0)?;
+        exprs.push(expr);
+    }
+    parser.consume(TokenType::RParen)?;
+
+    // hacky?: if no commas found, return a single expression
+    match exprs.len() {
+        1 => Ok(exprs.remove(0)),   // note we could do this unsafely because we *just* matched len
+        _ => Ok(Expression::tuple(token, exprs))
+    }
 }
 
 fn var_declaration(parser: &mut Parser, token: Token) -> ParseResult {
@@ -87,41 +98,15 @@ fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::conditional(token, condition_expr, true_expr, false_expr))
 }
 
-fn identifier_list(parser: &mut Parser, token: Token) -> ParseResult {
-    // one or more Name. token is the first name token
-    let mut idents = vec![Expression::literal(token.clone())];
-    while !parser.check(&TokenType::EOF) {
-        if !parser.advance_if(TokenType::Comma) {
-            break;
-        }
-
-        // this fuckery would be easier if TokenType was a plain enum
-        // and token.val (say) was a separate field
-        if let TokenType::Name(_) = parser.current_token.typ {
-            let ident = Expression::literal(parser.current_token.clone());
-            idents.push(ident);
-            parser.advance();
-        } else {
-            return Err(ParseError::ExpectedIdentifier(parser.current_token.clone()));
-        };
-    }
-    // hacky?: if no commas found, return a single identifier
-    match idents.len() {
-        1 => Ok(Expression::literal(token)),
-        _ => Ok(Expression::identifier_list(token, idents))
-    }
-}
-
-fn arrow_func(parser: &mut Parser, token: Token, left: Expression, precedence: Precedence) -> ParseResult {
-    // left is the arguments, an IdentifierListExpression
-    // essentialy replace the "literal" rule for Name with "identifier_list"?
+fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
+    // Left is the arguments, which parses as either a literal (name) or a tuple
     match left {
         Expression::Literal(ref arg) => {
-            let args = IdentifierListExpr { token: token.clone(), identifiers: vec![left] };    // this is dumb
+            let args = TupleExpr { token: token.clone(), items: vec![left] };    // this is dumb
             let body = parser.expression(0)?;
             Ok(Expression::function(token, "func".to_string(), args, body))
         }
-        Expression::IdentifierList(args) => {
+        Expression::Tuple(args) => {
             let body = parser.expression(0)?;
             Ok(Expression::function(token, "func".to_string(), args, body))
         },
@@ -163,7 +148,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::LiteralNull    => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
         TokenType::Let      => ParseRule { precedence: 0, prefix_fn: var_declaration, infix_fn: infix_error },
-        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: identifier_list, infix_fn: infix_error },
+        TokenType::Name(_)  => ParseRule { precedence: 0, prefix_fn: literal, infix_fn: infix_error },
 
         // If is an expression
         TokenType::If       => ParseRule { precedence: 0, prefix_fn: conditional, infix_fn: infix_error },
@@ -255,14 +240,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn consume_one_of(&mut self, expected: Vec<TokenType>) -> Result<Token, ParseError> {
-        let found = self.advance();
-        if expected.contains(&found.typ) {
-            Ok(found)
-        } else {
-            Err(ParseError::ExpectedButFound(expected, found.typ))
-        }
-    }
+//    fn consume_one_of(&mut self, expected: Vec<TokenType>) -> Result<Token, ParseError> {
+//        let found = self.advance();
+//        if expected.contains(&found.typ) {
+//            Ok(found)
+//        } else {
+//            Err(ParseError::ExpectedButFound(expected, found.typ))
+//        }
+//    }
 
     fn consume_many(&mut self, expected: TokenType) {
         // Consume zero or more of a token type, without returning them
@@ -271,14 +256,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn advance_if(&mut self, expected: TokenType) -> bool {
-        if !self.check(&expected) {
-            false
-        } else {
-            self.advance();
-            true
-        }
-    }
+//    fn advance_if(&mut self, expected: TokenType) -> bool {
+//        if !self.check(&expected) {
+//            false
+//        } else {
+//            self.advance();
+//            true
+//        }
+//    }
 
     #[inline]
     fn check(&mut self, expected: &TokenType) -> bool {

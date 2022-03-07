@@ -37,16 +37,16 @@ pub struct ConditionalExpr {
 }
 
 #[derive(Debug)]
-pub struct IdentifierListExpr {
+pub struct TupleExpr {
     pub token: Token,
-    pub identifiers: Vec<Expression>
+    pub items: Vec<Expression>
 }
 
 #[derive(Debug)]
 pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
-    pub arguments: IdentifierListExpr,
+    pub arguments: TupleExpr,
     pub body: Box<Expression>    // todo: should be a block, no?
 }
 
@@ -58,7 +58,7 @@ pub enum Expression {
     Assignment(AssignExpr),
     Conditional(ConditionalExpr),
     Function(FunctionExpr),
-    IdentifierList(IdentifierListExpr)
+    Tuple(TupleExpr)
 }
 
 impl Expression {
@@ -88,17 +88,17 @@ impl Expression {
         })
     }
 
-    pub fn function(token: Token, name: String, args: IdentifierListExpr, body: Expression) -> Self {
+    pub fn function(token: Token, name: String, arguments: TupleExpr, body: Expression) -> Self {
         Expression::Function(FunctionExpr {
             token,
             name,
-            arguments: args,
+            arguments,
             body: Box::new(body)
         })
     }
 
-    pub fn identifier_list(token: Token, identifiers: Vec<Expression>) -> Self {
-        Expression::IdentifierList(IdentifierListExpr {token, identifiers} )
+    pub fn tuple(token: Token, items: Vec<Expression>) -> Self {
+        Expression::Tuple(TupleExpr {token, items})
     }
 }
 

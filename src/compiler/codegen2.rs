@@ -132,7 +132,14 @@ impl Compile for ConditionalExpr {
 
 impl Compile for FunctionExpr {
     fn compile(self) -> CompileResult {
+        println!("{:#?}", self);
         todo!("fuck")
+    }
+}
+
+impl Compile for TupleExpr {
+    fn compile(self) -> CompileResult {
+        todo!("yeah no")
     }
 }
 
@@ -145,9 +152,7 @@ impl Compile for Expression {
             Expression::Assignment(expr)    => expr.compile(),
             Expression::Conditional(expr)   => expr.compile(),
             Expression::Function(expr)      => expr.compile(),
-            Expression::IdentifierList(_expr) => Err(CompileError::CompileError(
-                "you shouldn't be compiling one of these directly".to_string()
-            ))
+            Expression::Tuple(expr)   => expr.compile()
         }
     }
 }
