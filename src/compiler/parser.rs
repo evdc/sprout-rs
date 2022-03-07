@@ -100,18 +100,14 @@ fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
 
 fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
     // Left is the arguments, which parses as either a literal (name) or a tuple
-    match left {
-        Expression::Literal(ref arg) => {
-            let args = TupleExpr { token: token.clone(), items: vec![left] };    // this is dumb
-            let body = parser.expression(0)?;
-            Ok(Expression::function(token, "func".to_string(), args, body))
-        }
-        Expression::Tuple(args) => {
-            let body = parser.expression(0)?;
-            Ok(Expression::function(token, "func".to_string(), args, body))
-        },
-        _ => Err(ParseError::ExpectedIdentifier(token))     // todo: this actually points to the wrong token
-    }
+    let args = match left {
+        Expression::Literal(_) => vec![left],
+        Expression::Tuple(args) => args.items,
+        _ => { return Err(ParseError::ExpectedIdentifier(token)); }     // todo: this actually points to the wrong token
+    };
+    let body = parser.expression(0)?;
+    Ok(Expression::function(token, "func".to_string(), args, body))
+
 }
 
 fn for_expr(_parser: &mut Parser, _token: Token) -> ParseResult {

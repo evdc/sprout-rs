@@ -46,7 +46,7 @@ pub struct TupleExpr {
 pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
-    pub arguments: TupleExpr,
+    pub arguments: Vec<Expression>,
     pub body: Box<Expression>    // todo: should be a block, no?
 }
 
@@ -88,7 +88,7 @@ impl Expression {
         })
     }
 
-    pub fn function(token: Token, name: String, arguments: TupleExpr, body: Expression) -> Self {
+    pub fn function(token: Token, name: String, arguments: Vec<Expression>, body: Expression) -> Self {
         Expression::Function(FunctionExpr {
             token,
             name,
