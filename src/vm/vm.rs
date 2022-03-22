@@ -164,10 +164,7 @@ impl VM {
                     }
                 },
 
-                // Crafting Interpreters unsafely assumes the constant referred to is a string
-                // Rust won't let us assume this, so we have to `if let` which may slow us down
-                // This may be a justification for unsafe code: we trust the compiler.
-                // Anyway: This leaves the rvalue on the stack, because assigning is an expression
+                // This leaves the rvalue on the stack, because assigning is an expression
                 Op::SetGlobal(name) => {
                     let val = self.peek()?;
                     let val = val.clone();
@@ -178,6 +175,10 @@ impl VM {
                     let val = val.clone();
                     self.push(val);
                 },
+                Op::GetLocal(idx) => {
+                    let val = self.stack[idx].clone();
+                    self.push(val);
+                }
 
 
                 Op::Jump(how_high) => {

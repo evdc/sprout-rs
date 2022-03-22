@@ -199,8 +199,6 @@ impl<'a> Parser<'a> {
             Ok(block)
         } else {
             let expr = self.expression(0)?;
-            self.consume(TokenType::Semicolon)?;
-            self.consume_many(TokenType::Newline);
             Ok(Statement::Expression(Box::new(expr)))
         };
         println!("/Statement");
@@ -212,6 +210,8 @@ impl<'a> Parser<'a> {
         let mut statements: Vec<Box<Statement>> = Vec::new();
         while !self.check(&TokenType::EOF) && !self.check(&TokenType::RBrace) {
             let st = self.statement()?;
+            self.consume(TokenType::Semicolon)?;
+            self.consume_many(TokenType::Newline);
             statements.push(Box::new(st));
         }
         println!("/Block");
