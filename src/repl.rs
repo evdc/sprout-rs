@@ -1,5 +1,5 @@
 use crate::compiler::parser::{Parser, ParseError};
-use crate::compiler::codegen2::{compile, CompileError};
+use crate::compiler::codegen2::{Compiler, CompileError};
 use crate::vm::vm::{VM, VMError};
 use crate::vm::value::Value;
 
@@ -27,8 +27,9 @@ pub fn run() {
 }
 
 fn run_one(vm: &mut VM, input: &str) -> Result<Value, AnyErr> {
-    let statements = Parser::parse(input).map_err(AnyErr::ParseError)?;
-    let code = compile(statements).map_err(AnyErr::CompileError)?;
+    let block = Parser::parse(input).map_err(AnyErr::ParseError)?;
+    let mut compiler = Compiler::new();
+    let code = compiler.compile(block).map_err(AnyErr::CompileError)?;
 
     println!("Code: {:?}", code);
 

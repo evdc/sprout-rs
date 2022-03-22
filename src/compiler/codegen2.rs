@@ -14,16 +14,50 @@ pub type Code = Vec<Op>;
 
 type CompileResult = Result<Code, CompileError>;
 
-// This pure-function variant may not work with the state I assume a Compiler needs to keep?
+pub struct Compiler {
+    local_count: u32,
+    scope_depth: u32
+}
+
+impl Compiler {
+    pub fn new() -> Self {
+        Compiler { local_count: 0, scope_depth: 0 }
+    }
+
+    pub fn compile(&mut self, statement: Statement) -> CompileResult {
+        let mut code = Vec::new();
+
+        match statement {
+            Statement::Block(statements) => {
+                self.scope_depth += 1;
+                for st in statements {
+                    code.extend(self.compile(*st)?);
+                }
+                self.scope_depth -= 1;
+            },
+
+            Statement::Expression(expr) => {
+                code.extend(expr.compile(&self)?);
+            }
+        }
+
+        if self.scope_depth == 0 {
+            code.push(Op::Return);
+        }
+        Ok(code)
+    }
+}
+
+
 trait Compile {
     // Takes ownership of self, an Expression, and destroys it
-    fn compile(self) -> CompileResult;
+    fn compile(self, compiler: &Compiler) -> CompileResult;
 }
 
 // todo: we need a new way to carry over line/col information into the VM
 
 impl Compile for LiteralExpr {
-    fn compile(self) -> CompileResult {
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
         let op = match self.token.typ {
             TokenType::LiteralNull => Op::LoadNull,
             TokenType::LiteralBool(b) => {
@@ -45,16 +79,16 @@ impl Compile for LiteralExpr {
 }
 
 impl Compile for AssignExpr {
-    fn compile(self) -> CompileResult {
-        let mut code = self.value.compile()?;
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
+        let mut code = self.value.compile(_compiler)?;
         code.push(Op::SetGlobal(self.name.clone()));
         Ok(code)
     }
 }
 
 impl Compile for UnaryExpr {
-    fn compile(self) -> CompileResult {
-        let mut code = self.value.compile()?;
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
+        let mut code = self.value.compile(_compiler)?;
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
             TokenType::Not   => Op::Not,
@@ -67,9 +101,9 @@ impl Compile for UnaryExpr {
 }
 
 impl Compile for BinaryExpr {
-    fn compile(self) -> CompileResult {
-        let mut code = self.left.compile()?;
-        let right_code = self.right.compile()?;
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
+        let mut code = self.left.compile(_compiler)?;
+        let right_code = self.right.compile(_compiler)?;
         let op = match self.token.typ {
             TokenType::Plus     => Op::Add,
             TokenType::Minus    => Op::Sub,
@@ -106,17 +140,17 @@ impl Compile for BinaryExpr {
 }
 
 impl Compile for ConditionalExpr {
-    fn compile(self) -> CompileResult {
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
         // We can avoid patching jumps here by determining their lengths ahead of time.
-        let mut code = self.condition_expr.compile()?;
+        let mut code = self.condition_expr.compile(_compiler)?;
 
-        let true_code = self.true_expr.compile()?;
+        let true_code = self.true_expr.compile(_compiler)?;
         code.push(Op::JumpIfFalse(true_code.len() + 1)); // skip the true branch + the pop
         code.push(Op::Pop);
         code.extend(true_code);
 
         if let Some(false_branch) = *self.false_expr {
-            let false_code = false_branch.compile()?;
+            let false_code = false_branch.compile(_compiler)?;
             // append an absolute jump to the end of the true branch
             code.push(Op::Jump(false_code.len()));
             code.extend(false_code);
@@ -131,49 +165,30 @@ impl Compile for ConditionalExpr {
 }
 
 impl Compile for FunctionExpr {
-    fn compile(self) -> CompileResult {
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
         println!("{:#?}", self);
         todo!("yeah no")
     }
 }
 
 impl Compile for TupleExpr {
-    fn compile(self) -> CompileResult {
+    fn compile(self, _compiler: &Compiler) -> CompileResult {
         todo!("yeah no")
     }
 }
 
 impl Compile for Expression {
-    fn compile(self) -> CompileResult {
+    fn compile(self, compiler: &Compiler) -> CompileResult {
         match self {
-            Expression::Literal(expr) => expr.compile(),
-            Expression::Unary(expr)   => expr.compile(),
-            Expression::Binary(expr)  => expr.compile(),
-            Expression::Assignment(expr)    => expr.compile(),
-            Expression::Conditional(expr)   => expr.compile(),
-            Expression::Function(expr)      => expr.compile(),
-            Expression::Tuple(expr)   => expr.compile()
+            Expression::Literal(expr) => expr.compile(compiler),
+            Expression::Unary(expr)   => expr.compile(compiler),
+            Expression::Binary(expr)  => expr.compile(compiler),
+            Expression::Assignment(expr)    => expr.compile(compiler),
+            Expression::Conditional(expr)   => expr.compile(compiler),
+            Expression::Function(expr)      => expr.compile(compiler),
+            Expression::Tuple(expr)   => expr.compile(compiler)
         }
     }
-}
-
-pub fn compile(statement: Statement) -> CompileResult {
-    let mut code = Vec::new();
-
-    match statement {
-        Statement::Block(statements) => {
-            for st in statements {
-                code.extend(compile(*st)?);
-            }
-        },
-
-        Statement::Expression(expr) => {
-            code.extend(expr.compile()?);
-        }
-    }
-
-    code.push(Op::Return);
-    Ok(code)
 }
 
 
