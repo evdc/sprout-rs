@@ -47,7 +47,7 @@ pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
     pub arguments: Vec<Expression>,
-    pub body: Box<Expression>    // todo: should be a block, no?
+    pub body: Statement
 }
 
 #[derive(Debug)]
@@ -88,12 +88,12 @@ impl Expression {
         })
     }
 
-    pub fn function(token: Token, name: String, arguments: Vec<Expression>, body: Expression) -> Self {
+    pub fn function(token: Token, name: String, arguments: Vec<Expression>, body: Statement) -> Self {
         Expression::Function(FunctionExpr {
             token,
             name,
             arguments,
-            body: Box::new(body)
+            body
         })
     }
 

@@ -105,7 +105,7 @@ fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: 
         Expression::Tuple(args) => args.items,
         _ => { return Err(ParseError::ExpectedIdentifier(token)); }     // todo: this actually points to the wrong token
     };
-    let body = parser.expression(0)?;
+    let body = parser.statement()?;         // this can be a block or a single expr
     Ok(Expression::function(token, "func".to_string(), args, body))
 
 }
@@ -185,37 +185,51 @@ impl<'a> Parser<'a> {
         let mut p = Parser::new(&mut l);
 
         // Parse a sequence of statements aka a block.
-        let mut statements: Vec<Box<Statement>> = Vec::new();
-        while !p.check(&TokenType::EOF) {
-            let st = p.statement()?;
-            statements.push(Box::new(st));
-        }
-        Ok(Statement::Block(statements))
+        p.block()
     }
 
     // =============================================================================================
 
     pub fn statement(&mut self) -> Result<Statement, ParseError> {
-        // later there will be more branches here.
-        let expr = self.expression(0)?;
+        println!("Statement: {:?}", self.current_token.typ);
+        let res = if self.check(&TokenType::LBrace) {
+            self.advance(); // eat the brace
+            let block = self.block()?;
+            self.consume(TokenType::RBrace)?;
+            Ok(block)
+        } else {
+            let expr = self.expression(0)?;
+            self.consume(TokenType::Semicolon)?;
+            self.consume_many(TokenType::Newline);
+            Ok(Statement::Expression(Box::new(expr)))
+        };
+        println!("/Statement");
+        res
+    }
 
-        self.consume(TokenType::Semicolon)?;
-        self.consume_many(TokenType::Newline);
-
-        Ok(Statement::Expression(Box::new(expr)))
+    pub fn block(&mut self) -> Result<Statement, ParseError> {
+        println!("Block: {:?}", self.current_token.typ);
+        let mut statements: Vec<Box<Statement>> = Vec::new();
+        while !self.check(&TokenType::EOF) && !self.check(&TokenType::RBrace) {
+            let st = self.statement()?;
+            statements.push(Box::new(st));
+        }
+        println!("/Block");
+        Ok(Statement::Block(statements))
     }
 
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
+        println!("Expression: {:?}", self.current_token.typ);
         let mut token = self.advance();
 
         let mut parsed_so_far = (get_parse_rule(&token).prefix_fn)(self, token.clone())?;
 
-        println!("{:?} {:?} {:?}", token.typ, self.current_token.typ, parsed_so_far);
+        // println!("{:?} {:?} {:?}", token.typ, self.current_token.typ, parsed_so_far);
         while precedence < get_parse_rule(&self.current_token).precedence {
             token = self.advance();
             parsed_so_far = (get_parse_rule(&token).infix_fn)(self, token, parsed_so_far, precedence)?;
         }
-
+        println!("/Expression");
         Ok(parsed_so_far)
     }
 

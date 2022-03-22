@@ -137,6 +137,8 @@ impl<'a> Lexer<'a> {
             Some('^') => TokenType::Power,
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
+            Some('{') => TokenType::LBrace,
+            Some('}') => TokenType::RBrace,
             Some(',') => TokenType::Comma,
             Some(';') => TokenType::Semicolon,
 

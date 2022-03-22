@@ -133,7 +133,7 @@ impl Compile for ConditionalExpr {
 impl Compile for FunctionExpr {
     fn compile(self) -> CompileResult {
         println!("{:#?}", self);
-        todo!("fuck")
+        todo!("yeah no")
     }
 }
 
