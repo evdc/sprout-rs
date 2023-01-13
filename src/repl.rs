@@ -19,8 +19,13 @@ pub fn run() {
     let mut vm = VM::new();
     loop {
         let input = get_input("🌱>> ");
+        // todo: handle control chars like up-arrow before we run it
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
 
-        let res = run_one(&mut vm, &input);
+        let res = run_one(&mut vm, &trimmed);
 
         println!("{:?}", res)
     }

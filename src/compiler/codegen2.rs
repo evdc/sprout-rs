@@ -17,8 +17,8 @@ type CompileResult = Result<Code, CompileError>;
 
 #[derive(Debug)]
 pub struct LocalVar {
-    name: String,        // todo: this could be a reference ... probably
-    depth: u32
+    name: String,        // todo: this should be a token reference, so we can track error info
+    depth: i32
 }
 
 impl LocalVar {
@@ -33,12 +33,12 @@ impl LocalVar {
 
 pub struct Compiler {
     locals: Vec<LocalVar>,
-    scope_depth: u32
+    scope_depth: i32
 }
 
 impl Compiler {
     pub fn new() -> Self {
-        Compiler { locals: Vec::new(), scope_depth: 0 }
+        Compiler { locals: Vec::new(), scope_depth: -1 }
     }
 
     pub fn local_count(&self) -> usize {
@@ -62,6 +62,7 @@ impl Compiler {
             }
         }
 
+        // TODO: why was this here? did we get this from CI?
         if self.scope_depth == 0 {
             code.push(Op::Return);
         }

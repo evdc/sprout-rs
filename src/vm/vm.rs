@@ -39,7 +39,7 @@ impl VM {
             // println!("Op: {:?} Stack: {:#?}", op, self.stack);
 
             match op {
-                Op::Return => return Ok(self.pop()?),
+                Op::Return => { return self.pop().or(Ok(Value::Null)); }
 
                 Op::LoadConstant(val) => self.push(val.clone()),
                 Op::LoadFalse => self.push(Value::Bool(false)),
