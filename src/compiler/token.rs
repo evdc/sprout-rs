@@ -39,6 +39,8 @@ pub enum TokenType {
     RBrace,
     Comma,
 
+    Eval,
+
     Semicolon,
     Newline,
 

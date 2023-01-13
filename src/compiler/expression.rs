@@ -108,3 +108,9 @@ pub enum Statement {
     Expression(Box<Expression>),
     Block(Vec<Box<Statement>>)
 }
+
+pub fn expr_to_block(expr: Expression) -> Statement {
+    Statement::Block(vec![Box::new(
+        Statement::Expression(Box::new(expr))
+    )])
+}
