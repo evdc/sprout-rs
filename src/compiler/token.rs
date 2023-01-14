@@ -40,6 +40,7 @@ pub enum TokenType {
     Comma,
 
     Eval,
+    Quote,
 
     Semicolon,
     Newline,

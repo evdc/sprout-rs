@@ -4,6 +4,7 @@
 // but counter to the everything-in-a-database design hypothesis.
 
 use crate::compiler::codegen2::Code;
+use crate::compiler::expression::Expression;
 
 
 // todo: can we put Function/String behind a single u64 or ptr for efficiency
@@ -13,7 +14,15 @@ pub enum Value {
     Bool(bool),
     Num(f64),
     Str(String),
-    Function(Function)
+    Function(Function),
+    Expression(Box<Expression>)
+}
+
+impl Value {
+    pub fn expression(expr: Expression) -> Self {
+        // takes ownership, not ref. is this the right move?
+        Value::Expression(Box::new(expr))
+    }
 }
 
 // so equality is same name/arity AND same code exactly ??
@@ -30,6 +39,7 @@ impl Function {
         Function { code: Vec::new(), arity: 0, name: String::new() }
     }
 }
+
 
 impl Value {
     pub fn falsey(&self) -> bool {

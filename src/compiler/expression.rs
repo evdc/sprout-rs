@@ -3,32 +3,32 @@ use crate::compiler::token::Token;
 // AST nodes (currently only Expressions) carry Tokens (owned),
 // so that they can carry line/col info through to the runtime, for error reporting.
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LiteralExpr {
     pub token: Token
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AssignExpr {
     pub token: Token,
     pub name: String,
     pub value: Box<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpr {
     pub token: Token,
     pub value: Box<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryExpr {
     pub token: Token,
     pub left: Box<Expression>,
     pub right: Box<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConditionalExpr {
     pub token: Token,
     pub condition_expr: Box<Expression>,
@@ -36,13 +36,13 @@ pub struct ConditionalExpr {
     pub false_expr: Box<Option<Expression>>     // should this really be a Option<Box<Expression>>?
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TupleExpr {
     pub token: Token,
     pub items: Vec<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
@@ -50,7 +50,13 @@ pub struct FunctionExpr {
     pub body: Statement
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct QuotedExpr {
+    pub token: Token,
+    pub subexpr: Box<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpr),
     Unary(UnaryExpr),
@@ -58,7 +64,8 @@ pub enum Expression {
     Assignment(AssignExpr),
     Conditional(ConditionalExpr),
     Function(FunctionExpr),
-    Tuple(TupleExpr)
+    Tuple(TupleExpr),
+    Quoted(QuotedExpr)
 }
 
 impl Expression {
@@ -100,10 +107,14 @@ impl Expression {
     pub fn tuple(token: Token, items: Vec<Expression>) -> Self {
         Expression::Tuple(TupleExpr {token, items})
     }
+
+    pub fn quoted(token: Token, subexpr: Expression) -> Self {
+        Expression::Quoted(QuotedExpr { token, subexpr: Box::new(subexpr)})
+    }
 }
 
 // A series of statements makes up your program
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Expression(Box<Expression>),
     Block(Vec<Box<Statement>>)

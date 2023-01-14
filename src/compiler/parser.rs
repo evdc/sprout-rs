@@ -44,6 +44,13 @@ fn unary_prefix(parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::unary(token, value))
 }
 
+// essentially the same shape as UnaryPrefix but a closing quote (for now)
+fn quoted(parser: &mut Parser, token: Token) -> ParseResult {
+    let subexpr = parser.expression(0)?;
+    parser.consume(TokenType::Quote)?;
+    Ok(Expression::quoted(token, subexpr))
+}
+
 fn infix(parser: &mut Parser, token: Token, left: Expression, precedence: Precedence) -> ParseResult {
     let right = parser.expression(precedence)?;
     Ok(Expression::binary(token, left, right))
@@ -144,7 +151,10 @@ fn value_to_expr(v: Value, line: u32, col: u32) -> Expression {
         // Expression::function expects a Statement for the body, but Value::Function has a Code for the body
         // we don't want to decompile it, so ... Function objs keep a ref to their original expr around somehow??
         // maybe if we did eval-macro in Compiler not Parser, we just use the resulting Function's code?
-        Value::Function(f) => todo!("need to figure this out")
+        Value::Function(f) => todo!("need to figure this out"),
+
+        // If it's a quoted expr then just pull out the inner expr ?
+        Value::Expression(expr) => *expr
     }
 }
 
@@ -189,6 +199,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::For      => ParseRule { precedence: 0, prefix_fn: for_expr, infix_fn: infix_error },
 
         // Macro-expansion / eval
+        TokenType::Quote    => ParseRule { precedence: 0, prefix_fn: quoted, infix_fn: infix_error },
         TokenType::Eval     => ParseRule { precedence: 0, prefix_fn: eval_expr, infix_fn: infix_error },
 
         TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: grouping, infix_fn: infix_error },

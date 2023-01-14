@@ -244,6 +244,16 @@ impl Compile for TupleExpr {
     }
 }
 
+impl Compile for QuotedExpr {
+    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+        let val = Value::Expression(self.subexpr);
+        let op = Op::LoadConstant(val);
+        Ok(vec![op])
+    }
+}
+
+// === Overall impl. Could use a macro here ===
+
 impl Compile for Expression {
     fn compile(self, compiler: &mut Compiler) -> CompileResult {
         match self {
@@ -253,7 +263,8 @@ impl Compile for Expression {
             Expression::Assignment(expr)    => expr.compile(compiler),
             Expression::Conditional(expr)   => expr.compile(compiler),
             Expression::Function(expr)      => expr.compile(compiler),
-            Expression::Tuple(expr)   => expr.compile(compiler)
+            Expression::Tuple(expr)   => expr.compile(compiler),
+            Expression::Quoted(expr)  => expr.compile(compiler)
         }
     }
 }

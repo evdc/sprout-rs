@@ -136,6 +136,7 @@ impl<'a> Lexer<'a> {
             Some('/') => TokenType::Slash,
             Some('^') => TokenType::Power,
             Some('$') => TokenType::Eval,
+            Some('`') => TokenType::Quote,
             Some('(') => TokenType::LParen,
             Some(')') => TokenType::RParen,
             Some('{') => TokenType::LBrace,
