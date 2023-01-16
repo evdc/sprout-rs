@@ -81,18 +81,10 @@ fn grouping(parser: &mut Parser, token: Token) -> ParseResult {
 
 fn var_declaration(parser: &mut Parser, token: Token) -> ParseResult {
     // Consume identifier name, '=', and expression. (Variables must be initialized)
-    let identifier_token = parser.advance();
-    if let TokenType::Name(name) = identifier_token.typ {
-        parser.consume(TokenType::Assign)?;
-
-        let expr = parser.expression(0)?;
-
-        // TODO: use a NameExpr for the name instead of a bare string
-        // We want to be able to assign to an expression in order to support destructuring too right?
-        Ok(Expression::assign(token, name, expr))
-    } else {
-        Err(ParseError::ExpectedIdentifier(parser.current_token.clone()))
-    }
+    let target = parser.expression(0)?;
+    parser.consume(TokenType::Eq);
+    let value = parser.expression(0)?;
+    Ok(Expression::assign(token, target, value))
 }
 
 fn conditional(parser: &mut Parser, token: Token) -> ParseResult {

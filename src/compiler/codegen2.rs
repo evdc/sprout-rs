@@ -141,15 +141,25 @@ impl Compile for LiteralExpr {
 
 impl Compile for AssignExpr {
     fn compile(self, compiler: &mut Compiler) -> CompileResult {
-        let mut code = self.value.compile(compiler)?;
-        // Assignments at scope depth 0 (top-level) are globals
-        // Otherwise, they're treated as locals and simply left on the stack
-        if compiler.scope_depth == 0 {
-            code.push(Op::SetGlobal(self.name.clone()));
+        // validate assignment target - currently only a name literal
+        // eventually allow a tuple expr for destructuring
+        if let Expression::Literal(expr) = *self.target {
+            if let TokenType::Name(name) = expr.token.typ {
+                let mut code = self.value.compile(compiler)?;
+                // Assignments at scope depth 0 (top-level) are globals
+                // Otherwise, they're treated as locals and simply left on the stack
+                if compiler.scope_depth == 0 {
+                    code.push(Op::SetGlobal(name.clone()));
+                } else {
+                    compiler.add_local(name);
+                }
+                return Ok(code)
+            } else {
+                return Err(CompileError::CompileError("Invalid assignment target".to_string()));
+            }
         } else {
-            compiler.add_local(self.name);
+            return Err(CompileError::CompileError("Invalid assignment target".to_string()));
         }
-        Ok(code)
     }
 }
 

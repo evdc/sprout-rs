@@ -11,7 +11,7 @@ pub struct LiteralExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssignExpr {
     pub token: Token,
-    pub name: String,
+    pub target: Box<Expression>,
     pub value: Box<Expression>
 }
 
@@ -82,8 +82,8 @@ impl Expression {
         Expression::Binary(BinaryExpr { token, left: Box::new(left), right: Box::new(right) })
     }
 
-    pub fn assign(token: Token, name: String, right: Expression) -> Self {
-        Expression::Assignment(AssignExpr { token, name, value: Box::new(right) })
+    pub fn assign(token: Token, target: Expression, value: Expression) -> Self {
+        Expression::Assignment(AssignExpr { token, target: Box::new(target), value: Box::new(value) })
     }
 
     pub fn conditional(token: Token, condition_expr: Expression, true_expr: Expression, false_expr: Option<Expression>) -> Self {
