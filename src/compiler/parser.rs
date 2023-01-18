@@ -82,7 +82,7 @@ fn grouping(parser: &mut Parser, token: Token) -> ParseResult {
 fn var_declaration(parser: &mut Parser, token: Token) -> ParseResult {
     // Consume identifier name, '=', and expression. (Variables must be initialized)
     let target = parser.expression(0)?;
-    parser.consume(TokenType::Eq);
+    parser.consume(TokenType::Assign)?;
     let value = parser.expression(0)?;
     Ok(Expression::assign(token, target, value))
 }

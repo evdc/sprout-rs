@@ -1,7 +1,10 @@
+use std::convert::TryInto;
+
 use super::expression::*;
 use super::token::{Token, TokenType};
 
 use crate::vm::value::Value;
+use crate::vm::value::Function;
 use crate::vm::opcode::Op;
 
 
@@ -242,9 +245,20 @@ impl Compile for ConditionalExpr {
 }
 
 impl Compile for FunctionExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, compiler: &mut Compiler) -> CompileResult {
         println!("{:#?}", self);
-        todo!("yeah no")
+        let arity: u8 = self.arguments.len().try_into().expect("Error: Function can't have more than 255 args");
+        // todo: I think we need to enter_scope here even if no braces
+        let code = self.body.compile(compiler)?;
+
+        let func = Value::Function(Function { code, arity, name: self.name });
+
+        // TODO: ok so. I think the CI (https://craftinginterpreters.com/calls-and-functions.html#creating-functions-at-compile-time)
+        // answer here is that instead of each compile fn returning a chunk of code to append to,
+        // the toplevel compile fn (at least) returns a Function object, which contains code, and also arg names and stuff
+        // and then there's an implicit toplevel one
+        // and then the VM doesn't accept a Code (= Vec<Op>) to run, but a Function
+        Ok(vec![Op::LoadConstant(func)])
     }
 }
 
@@ -255,12 +269,20 @@ impl Compile for TupleExpr {
 }
 
 impl Compile for QuotedExpr {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
         let val = Value::Expression(self.subexpr);
         let op = Op::LoadConstant(val);
         Ok(vec![op])
     }
 }
+
+impl Compile for Statement {
+    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+        // this is silly
+        compiler.compile(self)
+    }
+}
+
 
 // === Overall impl. Could use a macro here ===
 

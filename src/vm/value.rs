@@ -28,9 +28,9 @@ impl Value {
 // so equality is same name/arity AND same code exactly ??
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
-    code: Code,
-    arity: u8,
-    name: String
+    pub code: Code,
+    pub arity: u8,
+    pub name: String
 }
 
 
