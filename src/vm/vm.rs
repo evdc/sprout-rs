@@ -1,6 +1,7 @@
 use crate::vm::opcode::Op;
 use crate::compiler::codegen2::Code;
 use crate::vm::value::Value;
+use crate::vm::value::Function;
 
 use std::collections::HashMap;
 
@@ -28,8 +29,13 @@ impl VM {
         VM { code: Vec::new(), ip: 0, stack: Vec::new(), globals: HashMap::new() }
     }
 
-    pub fn run(&mut self, code: Code) -> VMResult {
-        self.code = code;
+    pub fn run(&mut self, function: Function) -> VMResult {
+        // Takes ownership of a Function object. Function/Code passed to Run will outlive the VM.
+        //  (idk if Rust knows this, or how to communicate that)
+        // TODO: create a CallFrame with a ref(?) to this Function.
+        //  Then modify instructions to work w the current frame instead of VM directly owning ip.
+
+        self.code = function.code;
         self.ip = 0;
 
         loop {

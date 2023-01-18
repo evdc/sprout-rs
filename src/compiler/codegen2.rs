@@ -16,7 +16,8 @@ pub enum CompileError {
 
 pub type Code = Vec<Op>;
 
-type CompileResult = Result<Code, CompileError>;
+type CompileResult = Result<Function, CompileError>;
+type CodeResult = Result<Code, CompileError>;
 
 #[derive(Debug)]
 pub struct LocalVar {
@@ -41,7 +42,7 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn new() -> Self {
-        Compiler { locals: Vec::new(), scope_depth: -1 }
+        Compiler { locals: Vec::new(), scope_depth: 0 }
     }
 
     pub fn local_count(&self) -> usize {
@@ -49,27 +50,15 @@ impl Compiler {
     }
 
     pub fn compile(&mut self, statement: Statement) -> CompileResult {
-        let mut code = Vec::new();
-
-        match statement {
-            Statement::Block(statements) => {
-                self.enter_scope();
-                for st in statements {
-                    code.extend(self.compile(*st)?);
-                }
-                code = self.exit_scope(code);
-            },
-
-            Statement::Expression(expr) => {
-                code.extend(expr.compile(self)?);
-            }
-        }
+        let mut code = statement.compile(self)?;
 
         // TODO: why was this here? did we get this from CI?
         if self.scope_depth == 0 {
             code.push(Op::Return);
         }
-        Ok(code)
+
+        // Wrap the whole thing in a toplevel function.
+        Ok(Function { code, arity: 0, name: "<script>".to_string() })
     }
 
     pub fn add_local(&mut self, name: String) -> () {
@@ -105,13 +94,13 @@ impl Compiler {
 
 trait Compile {
     // Takes ownership of self, an Expression, and destroys it
-    fn compile(self, compiler: &mut Compiler) -> CompileResult;
+    fn compile(self, compiler: &mut Compiler) -> CodeResult;
 }
 
 // todo: we need a new way to carry over line/col information into the VM
 
 impl Compile for LiteralExpr {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
         let op = match self.token.typ {
             TokenType::LiteralNull => Op::LoadNull,
             TokenType::LiteralBool(b) => {
@@ -143,7 +132,7 @@ impl Compile for LiteralExpr {
 }
 
 impl Compile for AssignExpr {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
         // validate assignment target - currently only a name literal
         // eventually allow a tuple expr for destructuring
         if let Expression::Literal(expr) = *self.target {
@@ -167,7 +156,7 @@ impl Compile for AssignExpr {
 }
 
 impl Compile for UnaryExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         let mut code = self.value.compile(_compiler)?;
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
@@ -181,7 +170,7 @@ impl Compile for UnaryExpr {
 }
 
 impl Compile for BinaryExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         let mut code = self.left.compile(_compiler)?;
         let right_code = self.right.compile(_compiler)?;
         let op = match self.token.typ {
@@ -220,7 +209,7 @@ impl Compile for BinaryExpr {
 }
 
 impl Compile for ConditionalExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         // We can avoid patching jumps here by determining their lengths ahead of time.
         let mut code = self.condition_expr.compile(_compiler)?;
 
@@ -245,7 +234,7 @@ impl Compile for ConditionalExpr {
 }
 
 impl Compile for FunctionExpr {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
         println!("{:#?}", self);
         let arity: u8 = self.arguments.len().try_into().expect("Error: Function can't have more than 255 args");
         // todo: I think we need to enter_scope here even if no braces
@@ -263,13 +252,13 @@ impl Compile for FunctionExpr {
 }
 
 impl Compile for TupleExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         todo!("yeah no")
     }
 }
 
 impl Compile for QuotedExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         let val = Value::Expression(self.subexpr);
         let op = Op::LoadConstant(val);
         Ok(vec![op])
@@ -277,9 +266,22 @@ impl Compile for QuotedExpr {
 }
 
 impl Compile for Statement {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
-        // this is silly
-        compiler.compile(self)
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+        let mut code = Vec::new();
+        match self {
+            Statement::Block(statements) => {
+                compiler.enter_scope();
+                for st in statements {
+                    code.extend(st.compile(compiler)?);
+                }
+                code = compiler.exit_scope(code);
+            },
+
+            Statement::Expression(expr) => {
+                code.extend(expr.compile(compiler)?);
+            }
+        };
+        Ok(code)
     }
 }
 
@@ -287,7 +289,7 @@ impl Compile for Statement {
 // === Overall impl. Could use a macro here ===
 
 impl Compile for Expression {
-    fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
         match self {
             Expression::Literal(expr) => expr.compile(compiler),
             Expression::Unary(expr)   => expr.compile(compiler),

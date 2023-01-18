@@ -28,7 +28,7 @@ impl Interpreter {
         
         let function = self.compiler.compile(block).map_err(AnyErr::CompileError)?;
     
-        println!("Function: {:#?}", function);
+        println!("Code: {:?}", function.code);
     
         let res = self.vm.run(function).map_err(AnyErr::VMError)?;
     
