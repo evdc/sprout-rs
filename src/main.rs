@@ -1,5 +1,5 @@
-use sprout_rs::repl::run;
+use sprout_rs::interpreter::repl;
 
 fn main() {
-    run();
+    repl();
 }

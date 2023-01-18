@@ -7,16 +7,37 @@ use std::io;
 use std::io::Write;
 
 #[derive(Debug)]
-enum AnyErr {
+pub enum AnyErr {
     ParseError(ParseError),
     CompileError(CompileError),
     VMError(VMError)
 }
 
+pub struct Interpreter {
+    vm: VM,
+    compiler: Compiler,
+}
 
+impl Interpreter {
+    pub fn new() -> Self {
+        Interpreter { vm: VM::new(), compiler: Compiler::new() }
+    }
 
-pub fn run() {
-    let mut vm = VM::new();
+    pub fn run(&mut self, source: &str) -> Result<Value, AnyErr> {
+        let block = Parser::parse(source, &mut self.compiler, &mut self.vm).map_err(AnyErr::ParseError)?;
+        
+        let function = self.compiler.compile(block).map_err(AnyErr::CompileError)?;
+    
+        println!("Function: {:#?}", function);
+    
+        let res = self.vm.run(function).map_err(AnyErr::VMError)?;
+    
+        Ok(res)
+    }
+}
+
+pub fn repl() {
+    let mut interpreter = Interpreter::new();
     loop {
         let input = get_input("🌱>> ");
         // todo: handle control chars like up-arrow before we run it
@@ -25,25 +46,11 @@ pub fn run() {
             continue;
         }
 
-        let res = run_one(&mut vm, &trimmed);
+        let res = interpreter.run(&trimmed);
 
         println!("{:?}", res)
     }
 }
-
-fn run_one(vm: &mut VM, input: &str) -> Result<Value, AnyErr> {
-    let mut compiler = Compiler::new();
-    let block = Parser::parse(input, &mut compiler, vm).map_err(AnyErr::ParseError)?;
-    
-    let code = compiler.compile(block).map_err(AnyErr::CompileError)?;
-
-    println!("Code: {:?}", code);
-
-    let res = vm.run(code).map_err(AnyErr::VMError)?;
-
-    Ok(res)
-}
-
 
 fn get_input(prompt: &str) -> String {
     let mut stdout = io::stdout();
