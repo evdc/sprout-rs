@@ -17,16 +17,27 @@ pub enum VMError {
 pub type VMResult = Result<Value, VMError>;
 
 
+pub struct CallFrame {
+    // This is probably inefficient. But let's see
+    pub function: Box<Function>,
+    pub ip: usize,
+    pub base: usize
+}
+
+impl CallFrame {
+    pub fn new(function: Function, base: usize) -> Self {
+        CallFrame { function: Box::new(function), ip: 0, base }
+    }
+}
+
 pub struct VM {
-    code: Code,
-    ip: usize,
     stack: Vec<Value>,
-    globals: HashMap<String, Value>,
+    globals: HashMap<String, Value>
 }
 
 impl VM {
     pub fn new() -> Self {
-        VM { code: Vec::new(), ip: 0, stack: Vec::new(), globals: HashMap::new() }
+        VM { stack: Vec::new(), globals: HashMap::new() }
     }
 
     pub fn run(&mut self, function: Function) -> VMResult {
@@ -35,14 +46,19 @@ impl VM {
         // TODO: create a CallFrame with a ref(?) to this Function.
         //  Then modify instructions to work w the current frame instead of VM directly owning ip.
 
-        self.code = function.code;
-        self.ip = 0;
+        self.push(Value::Function(function.clone()));
+
+        // If we put the call stack inside this method then rust doesn't complain about borrowing self ??
+        let mut frames = vec![CallFrame::new(function, 1)];
+        let mut frame = frames.last_mut().unwrap();
+
+        // TODO: treat toplevel and function scope differently wrt globals
 
         loop {
-            let op = self.code[self.ip].clone();
-            self.ip += 1;
+            let op = frame.function.code[frame.ip].clone();
+            frame.ip += 1;
 
-            // println!("Op: {:?} Stack: {:#?}", op, self.stack);
+            println!("Op: {:?} Stack: {:#?}", op, self.stack);
 
             match op {
                 Op::Return => { return self.pop().or(Ok(Value::Null)); }
@@ -182,17 +198,21 @@ impl VM {
                     self.push(val);
                 },
                 Op::GetLocal(idx) => {
-                    let val = self.stack[idx].clone();
+                    let val = self.stack[frame.base + idx].clone();
                     self.push(val);
+                }
+                Op::SetLocal(idx) => {
+                    let val = self.peek()?;
+                    self.stack[frame.base + idx] = val.clone();
                 }
 
 
                 Op::Jump(how_high) => {
-                    self.ip += how_high;
+                    frame.ip += how_high;
                 },
                 Op::JumpIfFalse(how_high) => {
                     if self.peek()?.falsey() {
-                        self.ip += how_high;
+                        frame.ip += how_high;
                     }
                 }
                 Op::Pop    => { let _ = self.pop()?; },
@@ -205,7 +225,7 @@ impl VM {
                     if let Some(Value::Str(s)) = it {
                         // get an iterator over chars. really we want graphemes, so use the unicode_segmentation crate
                         if s.is_empty() {
-                            self.ip += size;
+                            frame.ip += size;
                         } else {
                             let new_s = Value::Str(s.remove(0).to_string());
                             self.push(new_s);

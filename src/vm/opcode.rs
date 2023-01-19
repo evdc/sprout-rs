@@ -29,6 +29,7 @@ pub enum Op {
     SetGlobal(String),  // directly stores the name to get/set
     GetGlobal(String),
     GetLocal(usize),
+    SetLocal(usize),
 
     Jump(usize),
     JumpIfFalse(usize),
