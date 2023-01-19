@@ -11,7 +11,8 @@ pub enum VMError {
     StackEmpty,
     TypeError(String),
     UndefinedVariable(String),
-    IncorrectBytecode
+    IncorrectBytecode,
+    NotCallable(Value),
 }
 
 pub type VMResult = Result<Value, VMError>;
@@ -46,17 +47,17 @@ impl VM {
         // TODO: create a CallFrame with a ref(?) to this Function.
         //  Then modify instructions to work w the current frame instead of VM directly owning ip.
 
+        // Reset stack bewteen invocations
+        self.stack = Vec::new();
         self.push(Value::Function(function.clone()));
 
         // If we put the call stack inside this method then rust doesn't complain about borrowing self ??
         let mut frames = vec![CallFrame::new(function, 1)];
-        let mut frame = frames.last_mut().unwrap();
-
-        // TODO: treat toplevel and function scope differently wrt globals
+        let mut current_frame = frames.last_mut().unwrap();
 
         loop {
-            let op = frame.function.code[frame.ip].clone();
-            frame.ip += 1;
+            let op = current_frame.function.code[current_frame.ip].clone();
+            current_frame.ip += 1;
 
             println!("Op: {:?} Stack: {:#?}", op, self.stack);
 
@@ -198,24 +199,39 @@ impl VM {
                     self.push(val);
                 },
                 Op::GetLocal(idx) => {
-                    let val = self.stack[frame.base + idx].clone();
+                    let val = self.stack[current_frame.base + idx].clone();
                     self.push(val);
                 }
                 Op::SetLocal(idx) => {
                     let val = self.peek()?;
-                    self.stack[frame.base + idx] = val.clone();
+                    self.stack[current_frame.base + idx] = val.clone();
                 }
 
 
                 Op::Jump(how_high) => {
-                    frame.ip += how_high;
+                    current_frame.ip += how_high;
                 },
                 Op::JumpIfFalse(how_high) => {
                     if self.peek()?.falsey() {
-                        frame.ip += how_high;
+                        current_frame.ip += how_high;
                     }
                 }
                 Op::Pop    => { let _ = self.pop()?; },
+
+                Op::Call(arity) => {
+                    // Value to be called, presumably a Value::Function, is on stack below arguments
+                    // todo: remove cloning!
+                    let callee = &self.stack[self.stack.len() - arity];
+                    match callee {
+                        Value::Function(func) => { 
+                            // Do call. Create a new CallFrame
+                            let frame = CallFrame::new(func.clone(), self.stack.len() - arity - 1);
+                            frames.push(frame);
+                            current_frame = frames.last_mut().unwrap();
+                         },
+                        _ => { return Err(VMError::NotCallable(callee.clone())); }
+                    };
+                },
 
                 Op::Iter(size) => {
                     // TOS is an iterable (currently only strings).
@@ -225,7 +241,7 @@ impl VM {
                     if let Some(Value::Str(s)) = it {
                         // get an iterator over chars. really we want graphemes, so use the unicode_segmentation crate
                         if s.is_empty() {
-                            frame.ip += size;
+                            current_frame.ip += size;
                         } else {
                             let new_s = Value::Str(s.remove(0).to_string());
                             self.push(new_s);

@@ -42,7 +42,7 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn new() -> Self {
-        Compiler { locals: Vec::new(), scope_depth: 0 }
+        Compiler { locals: Vec::new(), scope_depth: -1 }
     }
 
     pub fn local_count(&self) -> usize {
@@ -53,7 +53,7 @@ impl Compiler {
         let mut code = statement.compile(self)?;
 
         // TODO: why was this here? did we get this from CI?
-        if self.scope_depth == 0 {
+        if self.scope_depth <= 0 {
             code.push(Op::Return);
         }
 
@@ -62,6 +62,8 @@ impl Compiler {
     }
 
     pub fn add_local(&mut self, name: String) -> () {
+        // TODO: use depth=-1 to mark uninit
+        // this stops undefined vars in their own initializer from shadowing
         self.locals.push(LocalVar {name, depth: self.scope_depth})
     }
 

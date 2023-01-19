@@ -34,4 +34,6 @@ pub enum Op {
     Jump(usize),
     JumpIfFalse(usize),
     Iter(usize),
+
+    Call(usize),
 }
