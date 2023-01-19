@@ -109,7 +109,7 @@ fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: 
         Expression::Tuple(args) => args.items,
         _ => { return Err(ParseError::ExpectedIdentifier(token)); }     // todo: this actually points to the wrong token
     };
-    let body = parser.statement()?;         // this can be a block or a single expr
+    let body = parser.block()?;         // this can be a block or a single expr
     Ok(Expression::function(token, "func".to_string(), args, body))
 
 }
@@ -117,6 +117,21 @@ fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: 
 fn for_expr(_parser: &mut Parser, _token: Token) -> ParseResult {
     // let results = for NAME in EXPR do STATEMENTS end ???
     todo!("need to add lists before we can use for-exprs");
+}
+
+fn call_expr(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
+    // Token is a `(`. Left is the thing being called, typically a name.
+    // To the right is a series of comma separated argument values.
+
+    // todo: tuple has this in common, factor out
+    let mut arguments = Vec::new();
+    while !parser.check(&TokenType::EOF) {
+        let expr = parser.expression(0)?;
+        arguments.push(expr);
+        if !parser.advance_if(TokenType::Comma) { break };
+    }
+    parser.consume(TokenType::RParen)?;
+    Ok(Expression::call(token, left, arguments))
 }
 
 fn eval_expr(parser: &mut Parser, token: Token) -> ParseResult {
@@ -194,7 +209,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::Quote    => ParseRule { precedence: 0, prefix_fn: quoted, infix_fn: infix_error },
         TokenType::Eval     => ParseRule { precedence: 0, prefix_fn: eval_expr, infix_fn: infix_error },
 
-        TokenType::LParen   => ParseRule { precedence: 0, prefix_fn: grouping, infix_fn: infix_error },
+        TokenType::LParen   => ParseRule { precedence: 100, prefix_fn: grouping, infix_fn: call_expr },
 
         // Ignored tokens, whose parse rule should never be invoked.
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
@@ -313,14 +328,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-//    fn advance_if(&mut self, expected: TokenType) -> bool {
-//        if !self.check(&expected) {
-//            false
-//        } else {
-//            self.advance();
-//            true
-//        }
-//    }
+   fn advance_if(&mut self, expected: TokenType) -> bool {
+       if !self.check(&expected) {
+           false
+       } else {
+           self.advance();
+           true
+       }
+   }
 
     #[inline]
     fn check(&mut self, expected: &TokenType) -> bool {

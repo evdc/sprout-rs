@@ -51,6 +51,13 @@ pub struct FunctionExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CallExpr {
+    pub token: Token,
+    pub callee: Box<Expression>,
+    pub arguments: Vec<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct QuotedExpr {
     pub token: Token,
     pub subexpr: Box<Expression>
@@ -64,6 +71,7 @@ pub enum Expression {
     Assignment(AssignExpr),
     Conditional(ConditionalExpr),
     Function(FunctionExpr),
+    Call(CallExpr),
     Tuple(TupleExpr),
     Quoted(QuotedExpr)
 }
@@ -102,6 +110,10 @@ impl Expression {
             arguments,
             body
         })
+    }
+
+    pub fn call(token: Token, callee: Expression, arguments: Vec<Expression>) -> Self {
+        Expression::Call(CallExpr { token, callee: Box::new(callee), arguments})
     }
 
     pub fn tuple(token: Token, items: Vec<Expression>) -> Self {

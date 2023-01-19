@@ -253,6 +253,20 @@ impl Compile for FunctionExpr {
     }
 }
 
+impl Compile for CallExpr {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+        let arity = self.arguments.len();
+        // Compile the expression for the callee
+        let mut code = self.callee.compile(compiler)?;
+        // Compile the expressions for the arguments. TODO this could be more rust idiomatic right
+        for arg_expr in self.arguments {
+            code.extend(arg_expr.compile(compiler)?);
+        }
+        code.push(Op::Call(arity));
+        Ok(code)
+    }
+}
+
 impl Compile for TupleExpr {
     fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         todo!("yeah no")
@@ -299,6 +313,7 @@ impl Compile for Expression {
             Expression::Assignment(expr)    => expr.compile(compiler),
             Expression::Conditional(expr)   => expr.compile(compiler),
             Expression::Function(expr)      => expr.compile(compiler),
+            Expression::Call(expr)    => expr.compile(compiler),
             Expression::Tuple(expr)   => expr.compile(compiler),
             Expression::Quoted(expr)  => expr.compile(compiler)
         }
