@@ -27,6 +27,10 @@ Refactor memory mgmt
 - Use a custom DataStore; Values carry indices into it
     - Simple Scalars (bool, num) should still be direct in the enum, "unboxed" as it were
 
+Typechecking
+- HM inference, or similar? See "super tiny type checker"
+- Type-specialized opcodes
+
 ## Nice-to-have / QoL
 
 - print expressions succinctly (unparse)?

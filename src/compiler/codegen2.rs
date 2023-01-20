@@ -49,8 +49,8 @@ impl Compiler {
         self.locals.len()
     }
 
-    pub fn compile(&mut self, statement: Statement) -> CompileResult {
-        let mut code = statement.compile(self)?;
+    pub fn compile(&mut self, expression: Expression) -> CompileResult {
+        let mut code = expression.compile(self)?;
 
         // TODO: why was this here? did we get this from CI?
         if self.scope_depth <= 0 {
@@ -86,7 +86,7 @@ impl Compiler {
             if self.locals[self.locals.len() - 1].depth <= self.scope_depth {
                 break;
             }
-            code.push(Op::Pop);
+            // code.push(Op::Pop);
             self.locals.pop();
         }
         code
@@ -239,16 +239,28 @@ impl Compile for FunctionExpr {
     fn compile(self, compiler: &mut Compiler) -> CodeResult {
         println!("{:#?}", self);
         let arity: u8 = self.arguments.len().try_into().expect("Error: Function can't have more than 255 args");
-        // todo: I think we need to enter_scope here even if no braces
-        let code = self.body.compile(compiler)?;
+        
+        // We enter a new scope for the body and define the arguments as local variables available in that scope.
+        // However if the body is a BlockExpression we will just enter scope *again* when compiling it. what do?
 
+        compiler.enter_scope();
+        for arg in self.arguments {
+            compiler.add_local(arg);
+        }
+
+        // hacky
+        println!("COMPILE: scope depth before body: {:?}", compiler.scope_depth);
+        if let Expression::Block(_) = *self.body {
+            compiler.scope_depth -= 1;
+        }
+        let mut code = self.body.compile(compiler)?;
+        println!("COMPILE: scope depth after body: {:?}", compiler.scope_depth);
+        code.push(Op::Return);
+        code = compiler.exit_scope(code);
         let func = Value::Function(Function { code, arity, name: self.name });
-
-        // TODO: ok so. I think the CI (https://craftinginterpreters.com/calls-and-functions.html#creating-functions-at-compile-time)
-        // answer here is that instead of each compile fn returning a chunk of code to append to,
-        // the toplevel compile fn (at least) returns a Function object, which contains code, and also arg names and stuff
-        // and then there's an implicit toplevel one
-        // and then the VM doesn't accept a Code (= Vec<Op>) to run, but a Function
+        
+        // The only code that runs *when the function is defined* (not called)
+        // is just loading the Function Value onto the stack.
         Ok(vec![Op::LoadConstant(func)])
     }
 }
@@ -281,26 +293,24 @@ impl Compile for QuotedExpr {
     }
 }
 
-impl Compile for Statement {
+impl Compile for BlockExpr {
     fn compile(self, compiler: &mut Compiler) -> CodeResult {
+        // Insert a pop in between expressions, but not after the last one.
+        // This means at the end of a block, the result of the last expression is left on stack as the result of the block.
+        
+        compiler.enter_scope();
+        
+        // We could do this with Iterator::intersperse but that requires nightly.
         let mut code = Vec::new();
-        match self {
-            Statement::Block(statements) => {
-                compiler.enter_scope();
-                for st in statements {
-                    code.extend(st.compile(compiler)?);
-                }
-                code = compiler.exit_scope(code);
-            },
-
-            Statement::Expression(expr) => {
-                code.extend(expr.compile(compiler)?);
-            }
-        };
+        let n = self.exprs.len() - 1;
+        for (i, expr) in self.exprs.into_iter().enumerate() {
+            code.extend(expr.compile(compiler)?);
+            // if i != n { code.push(Op::Pop) };
+        }
+        code = compiler.exit_scope(code);
         Ok(code)
     }
 }
-
 
 // === Overall impl. Could use a macro here ===
 
@@ -315,6 +325,7 @@ impl Compile for Expression {
             Expression::Function(expr)      => expr.compile(compiler),
             Expression::Call(expr)    => expr.compile(compiler),
             Expression::Tuple(expr)   => expr.compile(compiler),
+            Expression::Block(expr)   => expr.compile(compiler),
             Expression::Quoted(expr)  => expr.compile(compiler)
         }
     }

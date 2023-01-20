@@ -221,11 +221,11 @@ impl VM {
                 Op::Call(arity) => {
                     // Value to be called, presumably a Value::Function, is on stack below arguments
                     // todo: remove cloning!
-                    let callee = &self.stack[self.stack.len() - arity];
+                    let callee = &self.stack[self.stack.len() - arity - 1];
                     match callee {
                         Value::Function(func) => { 
                             // Do call. Create a new CallFrame
-                            let frame = CallFrame::new(func.clone(), self.stack.len() - arity - 1);
+                            let frame = CallFrame::new(func.clone(), self.stack.len() - arity);
                             frames.push(frame);
                             current_frame = frames.last_mut().unwrap();
                          },

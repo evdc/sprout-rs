@@ -46,8 +46,8 @@ pub struct TupleExpr {
 pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
-    pub arguments: Vec<Expression>,
-    pub body: Statement
+    pub arguments: Vec<String>,
+    pub body: Box<Expression>
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +64,12 @@ pub struct QuotedExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct BlockExpr {
+    pub token: Token,
+    pub exprs: Vec<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpr),
     Unary(UnaryExpr),
@@ -73,7 +79,8 @@ pub enum Expression {
     Function(FunctionExpr),
     Call(CallExpr),
     Tuple(TupleExpr),
-    Quoted(QuotedExpr)
+    Quoted(QuotedExpr),
+    Block(BlockExpr)
 }
 
 impl Expression {
@@ -103,12 +110,12 @@ impl Expression {
         })
     }
 
-    pub fn function(token: Token, name: String, arguments: Vec<Expression>, body: Statement) -> Self {
+    pub fn function(token: Token, name: String, arguments: Vec<String>, body: Expression) -> Self {
         Expression::Function(FunctionExpr {
             token,
             name,
             arguments,
-            body
+            body: Box::new(body)
         })
     }
 
@@ -123,17 +130,8 @@ impl Expression {
     pub fn quoted(token: Token, subexpr: Expression) -> Self {
         Expression::Quoted(QuotedExpr { token, subexpr: Box::new(subexpr)})
     }
-}
 
-// A series of statements makes up your program
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
-    Expression(Box<Expression>),
-    Block(Vec<Box<Statement>>)
-}
-
-pub fn expr_to_block(expr: Expression) -> Statement {
-    Statement::Block(vec![Box::new(
-        Statement::Expression(Box::new(expr))
-    )])
+    pub fn block(token: Token, exprs: Vec<Expression>) -> Self {
+        Expression::Block(BlockExpr { token, exprs })
+    }
 }

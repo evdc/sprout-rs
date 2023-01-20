@@ -16,7 +16,8 @@ pub enum ParseError {
     NoPrefixFn(Token),
     NoInfixFn(Token),
     ExpectedIdentifier(Token),
-    ExpectedButFound(Vec<TokenType>, TokenType)
+    ExpectedButFound(Vec<TokenType>, TokenType),
+    UnidentifiedError
 }
 
 struct ParseRule {
@@ -104,13 +105,30 @@ fn conditional(parser: &mut Parser, token: Token) -> ParseResult {
 
 fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
     // Left is the arguments, which parses as either a literal (name) or a tuple
+    // TODO: Validate the arguments are all Names and then pass in as Strings, makes compiling way easier
+    //  (what's the use case for complex exprs as args? patterns basically for multimethods?)
     let args = match left {
         Expression::Literal(_) => vec![left],
         Expression::Tuple(args) => args.items,
         _ => { return Err(ParseError::ExpectedIdentifier(token)); }     // todo: this actually points to the wrong token
     };
-    let body = parser.block()?;         // this can be a block or a single expr
-    Ok(Expression::function(token, "func".to_string(), args, body))
+    // can't be bothered figuring out a good way to do this w/ iterators
+    // think try_collect would work but it's nightly
+    let mut arg_names = Vec::new();
+    for arg in args {
+        let name = match arg {
+            Expression::Literal(expr) => match expr.token.typ {
+                // todo maybe it would be nice if this wasn't buried so deep, etc
+                TokenType::Name(n) => n,
+                _ => { return Err(ParseError::ExpectedIdentifier(expr.token)); }
+            }, 
+            // TODO: we need to get the Token out of the Expr which I think we need a match for
+            _ => { return Err(ParseError::UnidentifiedError); }
+        };
+        arg_names.push(name);
+    };
+    let body = parser.expression(0)?;         // this can be a block or a single expr
+    Ok(Expression::function(token, "func".to_string(), arg_names, body))
 
 }
 
@@ -128,14 +146,22 @@ fn call_expr(parser: &mut Parser, token: Token, left: Expression, _precedence: P
     while !parser.check(&TokenType::EOF) {
         let expr = parser.expression(0)?;
         arguments.push(expr);
-        if !parser.advance_if(TokenType::Comma) { break };
+        if !parser.advance_if(&TokenType::Comma) { break };
     }
     parser.consume(TokenType::RParen)?;
     Ok(Expression::call(token, left, arguments))
 }
 
+fn block_expr(parser: &mut Parser, token: Token) -> ParseResult {
+    // Called on { in prefix position. (Which will be an issue if we want to use that for eg set/map literals.)
+    // But allows us to treat blocks as expressions. Eg `let foo = { let bar = 3; bar + 4 };` as in Rust.
+    let exprs = parser.expression_list(&TokenType::Semicolon)?;
+    parser.consume(TokenType::RBrace)?;
+    Ok(Expression::block(token, exprs))
+}
+
 fn eval_expr(parser: &mut Parser, token: Token) -> ParseResult {
-    let subexpr = expr_to_block(parser.expression(100)?);
+    let subexpr = parser.expression(100)?;
     println!("EVAL: Will evaluate: {:#?}", subexpr);
     let code = parser.compiler.compile(subexpr).unwrap();   // todo err handler
     println!("EVAL: Will run: {:?}", code);
@@ -209,7 +235,12 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::Quote    => ParseRule { precedence: 0, prefix_fn: quoted, infix_fn: infix_error },
         TokenType::Eval     => ParseRule { precedence: 0, prefix_fn: eval_expr, infix_fn: infix_error },
 
+        // Grouping and/or call
         TokenType::LParen   => ParseRule { precedence: 100, prefix_fn: grouping, infix_fn: call_expr },
+
+        // Prefix LBrace starts a block-expression.
+        // (Infix could be used for struct init, like in Rust, if it follows a Name?)
+        TokenType::LBrace   => ParseRule { precedence: 0, prefix_fn: block_expr, infix_fn: infix_error },
 
         // Ignored tokens, whose parse rule should never be invoked.
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix
@@ -219,9 +250,10 @@ fn get_parse_rule(token: &Token) -> ParseRule {
 
 
 pub struct Parser<'a> {
-    // Parser takes ownership of a Lexer, so they must have the same lifetime
+    // Parser mutably borrows a Lexer, so they must have the same lifetime
+    // Could just own it, unless we'd like to be able to resume parsing where we left off?
     tokens: &'a mut Lexer<'a>,
-    current_token: Token,
+    pub current_token: Token,
 
     // also borows a compiler and VM in order to compile-time execute
     // Compiler and VM ought to outlive the Parser
@@ -242,42 +274,27 @@ impl<'a> Parser<'a> {
         p
     }
 
-    pub fn parse(input: &str, compiler: &mut Compiler, vm: &mut VM) -> Result<Statement, ParseError> {
+    pub fn parse(input: &str, compiler: &mut Compiler, vm: &mut VM) -> Result<Expression, ParseError> {
         let mut l = Lexer::new(input);
         let mut p = Parser::new(&mut l, compiler, vm);
+        let first_tok = p.current_token.clone();
 
-        // Parse a sequence of statements aka a block.
-        p.block()
+        // Parse a sequence of expressions. But don't require a closing } at toplevel.
+        let exprs = p.expression_list(&TokenType::Semicolon)?;
+        Ok(Expression::block(first_tok, exprs))
     }
 
     // =============================================================================================
 
-    pub fn statement(&mut self) -> Result<Statement, ParseError> {
-        println!("Statement: {:?}", self.current_token.typ);
-        let res = if self.check(&TokenType::LBrace) {
-            self.advance(); // eat the brace
-            let block = self.block()?;
-            self.consume(TokenType::RBrace)?;
-            Ok(block)
-        } else {
+    pub fn expression_list(&mut self, sep: &TokenType) -> Result<Vec<Expression>, ParseError> {
+        let mut exprs = Vec::new();
+        while !self.check(&TokenType::EOF) {
             let expr = self.expression(0)?;
-            Ok(Statement::Expression(Box::new(expr)))
-        };
-        println!("/Statement");
-        res
-    }
-
-    pub fn block(&mut self) -> Result<Statement, ParseError> {
-        println!("Block: {:?}", self.current_token.typ);
-        let mut statements: Vec<Box<Statement>> = Vec::new();
-        while !self.check(&TokenType::EOF) && !self.check(&TokenType::RBrace) {
-            let st = self.statement()?;
-            self.consume(TokenType::Semicolon)?;
+            exprs.push(expr);
+            if !self.advance_if(sep) { break };
             self.consume_many(TokenType::Newline);
-            statements.push(Box::new(st));
         }
-        println!("/Block");
-        Ok(Statement::Block(statements))
+        Ok(exprs)
     }
 
     pub fn expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
@@ -328,8 +345,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-   fn advance_if(&mut self, expected: TokenType) -> bool {
-       if !self.check(&expected) {
+   fn advance_if(&mut self, expected: &TokenType) -> bool {
+       if !self.check(expected) {
            false
        } else {
            self.advance();
