@@ -79,19 +79,30 @@ impl Compiler {
     #[inline]
     fn enter_function_scope(&mut self) -> () {
         self.locals.push(Vec::new());
+        self.scope_depth += 1;
     }
 
     #[inline]
-    fn exit_scope(&mut self, code: Code) -> Code {
+    fn exit_scope(&mut self, mut code: Code) -> Code {
+        // could just merge into block bc it is only used there, now
         self.scope_depth -= 1;
         let depth = self.scope_depth;
         let scope = self.current_scope();
+        // translated from Crafting Interpreters, maybe not idiomatic
+        let mut n = 0;
         while !scope.is_empty() {
             if scope[scope.len() - 1].depth <= depth {
                 break;
             }
-            // code.push(Op::Pop);
+            n += 1;
             scope.pop();
+        }
+        // TOS is the result of evaluating the last expression in scope. 
+        // Below it are any locals. Swap TOS below all the locals, then pop them all,
+        // leaving the result on TOS again.
+        if n > 0 {
+            code.push(Op::Swap(n));
+            code.push(Op::Popn(n));
         }
         code
     }
@@ -248,11 +259,19 @@ impl Compile for FunctionExpr {
         let arity = self.arguments.len();
         
         // We enter a new scope for the body and define the arguments as local variables available in that scope.
+        // BUG: we aren't treating the locals as being at the same depth as the arguments w/ a block
         compiler.enter_function_scope();
         for arg in self.arguments {
+            // issue is that here we force add_local even when at scope depth 0 
+            // but when we see a name ref within the block body, we treat it as global if at depth 0
             compiler.add_local(arg);
         }
+        compiler.scope_depth -= 1;
 
+        // if we declare any locals in this block they get treated as at a diff. depth than the args
+        // bc we've done enter_scope twice now
+        // and so they don't all get popped correctly
+        // compiler.scope_depth -= 1;
         let mut code = self.body.compile(compiler)?;
         code.push(Op::Return);
         compiler.exit_function_scope();
@@ -302,9 +321,8 @@ impl Compile for BlockExpr {
         // We could do this with Iterator::intersperse but that requires nightly.
         let mut code = Vec::new();
         let n = self.exprs.len() - 1;
-        for (i, expr) in self.exprs.into_iter().enumerate() {
+        for expr in self.exprs.into_iter() {
             code.extend(expr.compile(compiler)?);
-            // if i != n { code.push(Op::Pop) };
         }
         code = compiler.exit_scope(code);
         Ok(code)

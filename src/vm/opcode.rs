@@ -36,4 +36,6 @@ pub enum Op {
     Iter(usize),
 
     Call(usize),
+    Swap(usize),
+    Popn(usize),
 }

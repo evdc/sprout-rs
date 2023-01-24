@@ -49,7 +49,7 @@ pub struct FunctionExpr {
     pub token: Token,
     pub name: String,
     pub arguments: Vec<String>,
-    pub body: Box<Expression>
+    pub body: BlockExpr
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -113,11 +113,17 @@ impl Expression {
     }
 
     pub fn function(token: Token, name: String, arguments: Vec<String>, body: Expression) -> Self {
+        let body = match body {
+            Expression::Block(b) => b,
+            // todo: this points to the wrong token I think, but to get the token out we'd need to match every variant
+            // because you can't say "ok, rust, you KNOW each variant contains a struct with a .token, come on"
+            expr @ _ => BlockExpr { token: token.clone(), exprs: vec![expr] }
+        };
         Expression::Function(FunctionExpr {
             token,
             name,
             arguments,
-            body: Box::new(body)
+            body
         })
     }
 

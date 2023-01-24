@@ -74,6 +74,8 @@ impl VM {
             match op {
                 Op::Return => { 
                     let result = self.pop().or(Ok(Value::Null));
+                    // Below the result is the fn object: pop that too.
+                    self.pop()?;
                     // Discard the top frame. If no more frames, then we were at toplevel: exit.
                     frames.pop();
                     if frames.len() == 0 { 
@@ -271,6 +273,16 @@ impl VM {
                     } else {
                         // error because it's not a string
                     }
+                },
+
+                Op::Swap(size) => {
+                    // PANICS if size >= stack.len(), which should not happen with correct codegen.
+                    let n = self.stack.len() - 1;
+                    self.stack.swap(n, n - size); 
+                },
+                Op::Popn(size) => {
+                    // PANICS if size > stack.len(), which should not happen with correct codegen.
+                    self.stack.truncate(self.stack.len() - size);
                 }
             }
         }
