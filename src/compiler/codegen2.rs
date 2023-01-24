@@ -235,18 +235,20 @@ impl Compile for ConditionalExpr {
         let mut code = self.condition_expr.compile(_compiler)?;
 
         let true_code = self.true_expr.compile(_compiler)?;
-        code.push(Op::JumpIfFalse(true_code.len() + 1)); // skip the true branch + the pop
+        code.push(Op::JumpIfFalse(true_code.len() + 2)); // skip the true branch + the pop + the next jump
         code.push(Op::Pop);
         code.extend(true_code);
 
         if let Some(false_branch) = *self.false_expr {
             let false_code = false_branch.compile(_compiler)?;
             // append an absolute jump to the end of the true branch
-            code.push(Op::Jump(false_code.len()));
+            code.push(Op::Jump(false_code.len() + 1));
+            code.push(Op::Pop);
             code.extend(false_code);
         } else {
             // implicit "else null" at the end
-            code.push(Op::Jump(1));
+            code.push(Op::Jump(2));
+            code.push(Op::Pop);
             code.push(Op::LoadNull);
         }
 

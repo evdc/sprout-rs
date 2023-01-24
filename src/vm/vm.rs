@@ -234,6 +234,7 @@ impl VM {
                     current_frame.ip += how_high;
                 },
                 Op::JumpIfFalse(how_high) => {
+                    // Do we want to pop - check CI
                     if self.peek()?.falsey() {
                         current_frame.ip += how_high;
                     }
