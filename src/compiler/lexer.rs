@@ -185,9 +185,9 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 // Helper fn for constructing these for testing
-fn tok(typ: TokenType) -> Token {
-    Token { typ, line: 0, col: 0}
-}
+// fn tok(typ: TokenType) -> Token {
+//     Token { typ, line: 0, col: 0}
+// }
 
 #[test]
 fn test_lexer() {

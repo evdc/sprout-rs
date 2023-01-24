@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::compiler::token::Token;
 
 // AST nodes (currently only Expressions) carry Tokens (owned),
@@ -133,5 +135,23 @@ impl Expression {
 
     pub fn block(token: Token, exprs: Vec<Expression>) -> Self {
         Expression::Block(BlockExpr { token, exprs })
+    }
+}
+
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expression::Literal(expr) => write!(f, "<{:?} @ {}:{}>", expr.token.typ, expr.token.line, expr.token.col),
+            Expression::Unary(expr) => write!(f, "{:#?}", expr),
+            Expression::Binary(expr) => write!(f, "{:#?}", expr),
+            Expression::Assignment(expr) => write!(f, "{:#?}", expr),
+            Expression::Conditional(expr) => write!(f, "{:#?}", expr),
+            Expression::Function(expr) => write!(f, "{:#?}", expr),
+            Expression::Call(expr) => write!(f, "{:#?}", expr),
+            Expression::Tuple(expr) => write!(f, "{:#?}", expr),
+            Expression::Quoted(expr) => write!(f, "{:#?}", expr),
+            Expression::Block(expr) => write!(f, "{:#?}", expr),
+        }
     }
 }

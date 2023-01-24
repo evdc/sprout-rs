@@ -2,6 +2,7 @@ use crate::compiler::parser::{Parser, ParseError};
 use crate::compiler::codegen2::{Compiler, CompileError};
 use crate::vm::vm::{VM, VMError};
 use crate::vm::value::Value;
+// use crate::utils::format_vec;
 
 use std::io;
 use std::io::Write;

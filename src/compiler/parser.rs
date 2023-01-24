@@ -128,7 +128,8 @@ fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: 
         arg_names.push(name);
     };
     let body = parser.expression(0)?;         // this can be a block or a single expr
-    Ok(Expression::function(token, "func".to_string(), arg_names, body))
+    let name = format!("<lambda at {}:{}>", token.line, token.col);
+    Ok(Expression::function(token, name, arg_names, body))
 
 }
 
@@ -184,7 +185,7 @@ fn value_to_expr(v: Value, line: u32, col: u32) -> Expression {
         // Expression::function expects a Statement for the body, but Value::Function has a Code for the body
         // we don't want to decompile it, so ... Function objs keep a ref to their original expr around somehow??
         // maybe if we did eval-macro in Compiler not Parser, we just use the resulting Function's code?
-        Value::Function(f) => todo!("need to figure this out"),
+        Value::Function(_f) => todo!("need to figure this out"),
 
         // If it's a quoted expr then just pull out the inner expr ?
         Value::Expression(expr) => *expr

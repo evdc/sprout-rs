@@ -25,24 +25,15 @@ pub struct LocalVar {
     depth: i32
 }
 
-impl LocalVar {
-//    pub fn name_equals(&self, other: &String) -> bool {
-//        if let TokenType::Name(n) = &self.name.typ {
-//            n == other
-//        } else {
-//            false
-//        }
-//    }
-}
-
 pub struct Compiler {
-    locals: Vec<LocalVar>,
+    // Sub-vectors represent fn scopes
+    locals: Vec<Vec<LocalVar>>,
     scope_depth: i32
 }
 
 impl Compiler {
     pub fn new() -> Self {
-        Compiler { locals: Vec::new(), scope_depth: -1 }
+        Compiler { locals: vec![Vec::new()], scope_depth: -1 }
     }
 
     pub fn local_count(&self) -> usize {
@@ -52,7 +43,6 @@ impl Compiler {
     pub fn compile(&mut self, expression: Expression) -> CompileResult {
         let mut code = expression.compile(self)?;
 
-        // TODO: why was this here? did we get this from CI?
         if self.scope_depth <= 0 {
             code.push(Op::Return);
         }
@@ -64,14 +54,21 @@ impl Compiler {
     pub fn add_local(&mut self, name: String) -> () {
         // TODO: use depth=-1 to mark uninit
         // this stops undefined vars in their own initializer from shadowing
-        self.locals.push(LocalVar {name, depth: self.scope_depth})
+        let depth = self.scope_depth;
+        self.current_scope().push(LocalVar {name, depth})
     }
 
-    pub fn resolve_local(&self, name: &String) -> Option<usize> {
+    pub fn resolve_local(&mut self, name: &String) -> Option<usize> {
         // Given a name, return the index within the locals array
         // of the local by that name, if we have one defined.
         println!("resolve {:?} in {:?}", name, self.locals);
-        self.locals.iter().rposition(|local| local.name == *name)
+        self.current_scope().iter().rposition(|local| local.name == *name)
+    }
+
+    #[inline]
+    fn current_scope(&mut self) -> &mut Vec<LocalVar> {
+        // Stack of scopes is initialized with one entry at init so should never be empty.
+        self.locals.last_mut().unwrap()
     }
 
     #[inline]
@@ -80,16 +77,27 @@ impl Compiler {
     }
 
     #[inline]
-    fn exit_scope(&mut self, mut code: Code) -> Code {
+    fn enter_function_scope(&mut self) -> () {
+        self.locals.push(Vec::new());
+    }
+
+    #[inline]
+    fn exit_scope(&mut self, code: Code) -> Code {
         self.scope_depth -= 1;
-        while !self.locals.is_empty() {
-            if self.locals[self.locals.len() - 1].depth <= self.scope_depth {
+        let depth = self.scope_depth;
+        let scope = self.current_scope();
+        while !scope.is_empty() {
+            if scope[scope.len() - 1].depth <= depth {
                 break;
             }
             // code.push(Op::Pop);
-            self.locals.pop();
+            scope.pop();
         }
         code
+    }
+
+    fn exit_function_scope(&mut self) -> () {
+        self.locals.pop();
     }
 }
 
@@ -237,26 +245,17 @@ impl Compile for ConditionalExpr {
 
 impl Compile for FunctionExpr {
     fn compile(self, compiler: &mut Compiler) -> CodeResult {
-        println!("{:#?}", self);
-        let arity: u8 = self.arguments.len().try_into().expect("Error: Function can't have more than 255 args");
+        let arity = self.arguments.len();
         
         // We enter a new scope for the body and define the arguments as local variables available in that scope.
-        // However if the body is a BlockExpression we will just enter scope *again* when compiling it. what do?
-
-        compiler.enter_scope();
+        compiler.enter_function_scope();
         for arg in self.arguments {
             compiler.add_local(arg);
         }
 
-        // hacky
-        println!("COMPILE: scope depth before body: {:?}", compiler.scope_depth);
-        if let Expression::Block(_) = *self.body {
-            compiler.scope_depth -= 1;
-        }
         let mut code = self.body.compile(compiler)?;
-        println!("COMPILE: scope depth after body: {:?}", compiler.scope_depth);
         code.push(Op::Return);
-        code = compiler.exit_scope(code);
+        compiler.exit_function_scope();
         let func = Value::Function(Function { code, arity, name: self.name });
         
         // The only code that runs *when the function is defined* (not called)

@@ -2,6 +2,7 @@
 
 // Defining strings this way (in a Box) is in line with the Crafting Interpreters tutorial, and others,
 // but counter to the everything-in-a-database design hypothesis.
+use std::fmt;
 
 use crate::compiler::codegen2::Code;
 use crate::compiler::expression::Expression;
@@ -23,13 +24,22 @@ impl Value {
         // takes ownership, not ref. is this the right move?
         Value::Expression(Box::new(expr))
     }
+
+    pub fn falsey(&self) -> bool {
+        match self {
+            Value::Null => true,
+            Value::Bool(false) => true,
+            Value::Num(0f64) => true,
+            _ => false
+        }
+    }
 }
 
 // so equality is same name/arity AND same code exactly ??
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub code: Code,
-    pub arity: u8,
+    pub arity: usize,
     pub name: String
 }
 
@@ -40,14 +50,21 @@ impl Function {
     }
 }
 
-
-impl Value {
-    pub fn falsey(&self) -> bool {
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Null => true,
-            Value::Bool(false) => true,
-            Value::Num(0f64) => true,
-            _ => false
+            Value::Null => write!(f, "Null"),
+            Value::Bool(x) => write!(f, "{}", x),
+            Value::Num(x) => write!(f, "{}", x),
+            Value::Str(x) => write!(f, "\"{}\"", x),
+            Value::Function(x) => write!(f, "{}", x),
+            Value::Expression(x) => write!(f, "`{}`", x)
         }
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "function {}", self.name)
     }
 }

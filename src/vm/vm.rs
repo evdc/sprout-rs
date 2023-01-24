@@ -1,9 +1,10 @@
 use crate::vm::opcode::Op;
-use crate::compiler::codegen2::Code;
 use crate::vm::value::Value;
 use crate::vm::value::Function;
+use crate::utils::format_vec;
 
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMError {
@@ -13,16 +14,24 @@ pub enum VMError {
     UndefinedVariable(String),
     IncorrectBytecode,
     NotCallable(Value),
+    // first is expected, second is actual
+    WrongNumberArgs(usize, usize)
 }
 
 pub type VMResult = Result<Value, VMError>;
 
-
+#[derive(Debug)]
 pub struct CallFrame {
     // This is probably inefficient. But let's see
     pub function: Box<Function>,
     pub ip: usize,
     pub base: usize
+}
+
+impl fmt::Display for CallFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<CallFrame {} ip: {} base: {}>", self.function.name, self.ip, self.base)
+    }
 }
 
 impl CallFrame {
@@ -59,10 +68,21 @@ impl VM {
             let op = current_frame.function.code[current_frame.ip].clone();
             current_frame.ip += 1;
 
-            println!("Op: {:?} Stack: {:#?}", op, self.stack);
+            println!("STACK: {}", format_vec(&self.stack));
+            println!("Op: {:?}", op);
 
             match op {
-                Op::Return => { return self.pop().or(Ok(Value::Null)); }
+                Op::Return => { 
+                    let result = self.pop().or(Ok(Value::Null));
+                    // Discard the top frame. If no more frames, then we were at toplevel: exit.
+                    frames.pop();
+                    if frames.len() == 0 { 
+                        return result
+                    }
+                    // If not: reset current frame, re-push result
+                    current_frame = frames.last_mut().unwrap();
+                    self.push(result.unwrap()); // known to not be an error
+                }
 
                 Op::LoadConstant(val) => self.push(val.clone()),
                 Op::LoadFalse => self.push(Value::Bool(false)),
@@ -224,8 +244,10 @@ impl VM {
                     let callee = &self.stack[self.stack.len() - arity - 1];
                     match callee {
                         Value::Function(func) => { 
+                            if func.arity != arity { return Err(VMError::WrongNumberArgs(func.arity, arity)); }
                             // Do call. Create a new CallFrame
                             let frame = CallFrame::new(func.clone(), self.stack.len() - arity);
+                            println!("NEW FRAME: {}", frame);
                             frames.push(frame);
                             current_frame = frames.last_mut().unwrap();
                          },
