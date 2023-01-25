@@ -27,6 +27,7 @@ fn lookup_keyword(s: &str) -> TokenType {
         "else"  => TokenType::Else,
         "for"   => TokenType::For,
         "in"    => TokenType::In,
+        "return" => TokenType::Return,
 
         _ => TokenType::Name(s.to_string())
     }

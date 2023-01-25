@@ -161,6 +161,16 @@ fn block_expr(parser: &mut Parser, token: Token) -> ParseResult {
     Ok(Expression::block(token, exprs))
 }
 
+fn return_expr(parser: &mut Parser, token: Token) -> ParseResult {
+    // Optional expression afterwards, otherwise Null.
+    // It is a little weird for there to be a "return expression" but hey Everything is an expression right??
+    let expr = if parser.check(&TokenType::Semicolon) {
+        // Generate an expr to load and return a literal Null
+        Expression::literal(Token { typ: TokenType::LiteralNull, line: token.line, col: token.col })
+    } else { parser.expression(100)? };
+    Ok(Expression::return_expr(token, expr))
+}
+
 fn eval_expr(parser: &mut Parser, token: Token) -> ParseResult {
     let subexpr = parser.expression(100)?;
     println!("EVAL: Will evaluate: {:#?}", subexpr);
@@ -242,6 +252,9 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         // Prefix LBrace starts a block-expression.
         // (Infix could be used for struct init, like in Rust, if it follows a Name?)
         TokenType::LBrace   => ParseRule { precedence: 0, prefix_fn: block_expr, infix_fn: infix_error },
+
+        // Return
+        TokenType::Return   => ParseRule { precedence: 0, prefix_fn: return_expr, infix_fn: infix_error},
 
         // Ignored tokens, whose parse rule should never be invoked.
         // if it is top (+inf) here it means we always hit the error but also even for TokenType::Illegal('\n') which we should fix

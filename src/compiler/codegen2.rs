@@ -182,6 +182,7 @@ impl Compile for UnaryExpr {
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
             TokenType::Not   => Op::Not,
+            TokenType::Return => Op::Return,
 
             _ => return Err(CompileError::CompileError("Unexpected unary token".to_string()))
         };
@@ -345,7 +346,8 @@ impl Compile for Expression {
             Expression::Call(expr)    => expr.compile(compiler),
             Expression::Tuple(expr)   => expr.compile(compiler),
             Expression::Block(expr)   => expr.compile(compiler),
-            Expression::Quoted(expr)  => expr.compile(compiler)
+            Expression::Quoted(expr)  => expr.compile(compiler),
+            Expression::Return(expr)  => expr.compile(compiler)
         }
     }
 }

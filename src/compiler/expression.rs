@@ -82,7 +82,9 @@ pub enum Expression {
     Call(CallExpr),
     Tuple(TupleExpr),
     Quoted(QuotedExpr),
-    Block(BlockExpr)
+    Block(BlockExpr),
+    // we can reuse the shape of a unary here ??
+    Return(UnaryExpr)
 }
 
 impl Expression {
@@ -142,6 +144,10 @@ impl Expression {
     pub fn block(token: Token, exprs: Vec<Expression>) -> Self {
         Expression::Block(BlockExpr { token, exprs })
     }
+
+    pub fn return_expr(token: Token, expr: Expression) -> Self {
+        Expression::Return(UnaryExpr { token, value: Box::new(expr)})
+    }
 }
 
 
@@ -158,6 +164,7 @@ impl fmt::Display for Expression {
             Expression::Tuple(expr) => write!(f, "{:#?}", expr),
             Expression::Quoted(expr) => write!(f, "{:#?}", expr),
             Expression::Block(expr) => write!(f, "{:#?}", expr),
+            Expression::Return(expr) => write!(f, "{:#?}", expr)
         }
     }
 }
