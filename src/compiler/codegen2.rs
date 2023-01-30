@@ -300,6 +300,9 @@ impl Compile for CallExpr {
     }
 }
 
+// TODO: ReturnExpr should call exit_scope too
+// Also debug what happens when you return from a deeply nested scope
+
 impl Compile for TupleExpr {
     fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         todo!("yeah no")
