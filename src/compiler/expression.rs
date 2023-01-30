@@ -72,6 +72,14 @@ pub struct BlockExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ForExpr {
+    pub token: Token,
+    pub target: Box<Expression>,
+    pub iterable: Box<Expression>,
+    pub body: Box<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpr),
     Unary(UnaryExpr),
@@ -83,6 +91,7 @@ pub enum Expression {
     Tuple(TupleExpr),
     Quoted(QuotedExpr),
     Block(BlockExpr),
+    For_(ForExpr),
     // we can reuse the shape of a unary here ??
     Return(UnaryExpr)
 }
@@ -137,6 +146,10 @@ impl Expression {
         Expression::Tuple(TupleExpr {token, items})
     }
 
+    pub fn for_expr(token: Token, target: Expression, iterable: Expression, body: Expression) -> Self {
+        Expression::For_(ForExpr { token, target: Box::new(target), iterable: Box::new(iterable), body: Box::new(body) })
+    }
+
     pub fn quoted(token: Token, subexpr: Expression) -> Self {
         Expression::Quoted(QuotedExpr { token, subexpr: Box::new(subexpr)})
     }
@@ -162,6 +175,7 @@ impl fmt::Display for Expression {
             Expression::Function(expr) => write!(f, "{:#?}", expr),
             Expression::Call(expr) => write!(f, "{:#?}", expr),
             Expression::Tuple(expr) => write!(f, "{:#?}", expr),
+            Expression::For_(expr) => write!(f, "for {} in {} do {}", expr.target, expr.iterable, expr.body),
             Expression::Quoted(expr) => write!(f, "{:#?}", expr),
             Expression::Block(expr) => write!(f, "{:#?}", expr),
             Expression::Return(expr) => write!(f, "{:#?}", expr)

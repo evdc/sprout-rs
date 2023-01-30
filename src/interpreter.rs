@@ -32,7 +32,7 @@ impl Interpreter {
         println!("Code: {:?}", function.code);
     
         let res = self.vm.run(function).map_err(AnyErr::VMError)?;
-    
+        // let res = Value::Null;
         Ok(res)
     }
 }

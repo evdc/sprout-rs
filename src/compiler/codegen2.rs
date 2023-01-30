@@ -315,6 +315,33 @@ impl Compile for TupleExpr {
     }
 }
 
+impl Compile for ForExpr {
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+        // Options: 1) Python-style list comp, build an anon fn and call it,
+        // 2) add Op::Map etc at the low level
+
+        // First eval the iterable, usually a load name or a literal tuple
+        let mut code = self.iterable.compile(compiler)?;
+
+        // Compile the body code. Still in the scope entered above.
+        let body_code = self.body.compile(compiler)?;
+        let n = body_code.len();
+        // Then emit the Op::Iter. We know how long it needs to be bc of the length of body code
+        code.push(Op::Iter(n + 1));
+        // And then the body ...
+        code.extend(body_code);
+        // Now TOS is the result of evaluating the body for one iteration.
+        // We will pop it and append it to the result tuple being built.
+        code.push(Op::TupleAppend(n));
+        // At the end of the body is a backward jump to the iter instruction.
+        code.push(Op::Loop(n));
+
+        // Make sure to exit the scope.
+        code = compiler.exit_scope(code);
+        Ok(code)
+    }
+}
+
 impl Compile for QuotedExpr {
     fn compile(self, _compiler: &mut Compiler) -> CodeResult {
         let val = Value::Expression(self.subexpr);
@@ -324,15 +351,9 @@ impl Compile for QuotedExpr {
 }
 
 impl Compile for BlockExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
-        // Insert a pop in between expressions, but not after the last one.
-        // This means at the end of a block, the result of the last expression is left on stack as the result of the block.
-        
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {        
         compiler.enter_scope();
-        
-        // We could do this with Iterator::intersperse but that requires nightly.
         let mut code = Vec::new();
-        let n = self.exprs.len() - 1;
         for expr in self.exprs.into_iter() {
             code.extend(expr.compile(compiler)?);
         }
@@ -354,6 +375,7 @@ impl Compile for Expression {
             Expression::Function(expr)      => expr.compile(compiler),
             Expression::Call(expr)    => expr.compile(compiler),
             Expression::Tuple(expr)   => expr.compile(compiler),
+            Expression::For_(expr)     => expr.compile(compiler),
             Expression::Block(expr)   => expr.compile(compiler),
             Expression::Quoted(expr)  => expr.compile(compiler),
             Expression::Return(expr)  => expr.compile(compiler)

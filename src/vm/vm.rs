@@ -238,7 +238,8 @@ impl VM {
                     if self.peek()?.falsey() {
                         current_frame.ip += how_high;
                     }
-                }
+                },
+                Op::Loop(n) => { current_frame.ip -= n; }
                 Op::Pop    => { let _ = self.pop()?; },
 
                 Op::Call(arity) => {
@@ -265,22 +266,41 @@ impl VM {
                     let items = self.stack.drain(idx..).collect();
                     self.push(Value::Tuple(items))
                 },
+                Op::TupleAppend(n) => {
+                    // TOS-n is a tuple. Pop TOS and append it to TOS-n.
+                    let val = self.pop()?;
+                    let idx = self.stack.len() - n;
+                    let target = &mut self.stack[idx];
+                    match target {
+                        Value::Tuple(ref mut tpl) => tpl.push(val),
+                        _ => return Err(VMError::TypeError(format!("Can't append to {}", target)))
+                    }
+                }
 
                 Op::Iter(size) => {
                     // TOS is an iterable (currently only strings).
                     // If it's nonempty, pop its next value and place it above on TOS.
                     // If it's empty, pop it and jump forward by `size` to skip loop body.
-                    let it = self.stack.last_mut();
-                    if let Some(Value::Str(s)) = it {
-                        // get an iterator over chars. really we want graphemes, so use the unicode_segmentation crate
-                        if s.is_empty() {
-                            current_frame.ip += size;
-                        } else {
-                            let new_s = Value::Str(s.remove(0).to_string());
-                            self.push(new_s);
+                    let it = self.stack.last_mut().unwrap();
+                    match it {
+                        Value::Str(s) => {
+                            if s.is_empty() {
+                                current_frame.ip += size;
+                            } else {
+                                let new_s = Value::Str(s.remove(0).to_string());
+                                self.push(new_s);
+                            }
+                        },
+                        Value::Tuple(t) => {
+                            if t.is_empty() {
+                                current_frame.ip += size;
+                            } else {
+                                // this will be inefficient to keep popping from the front
+                                let v = t.remove(0);
+                                self.push(v);
+                            }
                         }
-                    } else {
-                        // error because it's not a string
+                        _ => { return Err(VMError::TypeError(format!("{} is not iterable", it))); }
                     }
                 },
 

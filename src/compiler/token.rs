@@ -30,6 +30,7 @@ pub enum TokenType {
     Else,
     For,
     In,
+    Do,
     Return,
 
     Arrow,

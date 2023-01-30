@@ -133,9 +133,15 @@ fn arrow_func(parser: &mut Parser, token: Token, left: Expression, _precedence: 
 
 }
 
-fn for_expr(_parser: &mut Parser, _token: Token) -> ParseResult {
+fn for_expr(parser: &mut Parser, token: Token) -> ParseResult {
     // let results = for NAME in EXPR do STATEMENTS end ???
-    todo!("need to add lists before we can use for-exprs");
+    let target = parser.expression(100)?;
+    parser.consume(TokenType::In)?;
+    let iterable = parser.expression(100)?;
+    parser.consume(TokenType::Do)?;    // todo: necessary?
+    let body = parser.expression(0)?;
+
+    Ok(Expression::for_expr(token, target, iterable, body))
 }
 
 fn call_expr(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
