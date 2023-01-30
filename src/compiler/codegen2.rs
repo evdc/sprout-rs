@@ -207,6 +207,7 @@ impl Compile for BinaryExpr {
             TokenType::GtEq     => Op::GtEq,
             TokenType::Eq       => Op::Eq,
             TokenType::NotEq    => Op::NotEq,
+            TokenType::In       => Op::In,
             TokenType::And      => {
                 // skip the right code if falsey
                 code.push(Op::JumpIfFalse(right_code.len() + 1));

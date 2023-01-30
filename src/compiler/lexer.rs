@@ -4,8 +4,14 @@ use std::iter::Peekable;
 use super::token::Token;
 use super::token::TokenType;
 
+#[inline]
 fn is_letter(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_'
+}
+
+#[inline]
+fn is_name_char(ch: char) -> bool {
+    is_letter(ch) || ch.is_numeric()
 }
 
 // This could be a use case for Minimal Perfect Hashing
@@ -71,7 +77,7 @@ impl<'a> Lexer<'a> {
         let mut name = String::new();
         name.push(ch);
         while let Some(c) = self.peek() {
-            if is_letter(*c) {
+            if is_name_char(*c) {
                 name.push(self.advance().unwrap())      // safe, because we just peeked it
             } else {
                 break;
@@ -84,7 +90,9 @@ impl<'a> Lexer<'a> {
         let mut n = String::new();
         n.push(ch);
         while let Some(c) = self.peek() {
-            if c.is_numeric() {
+            // Allowing . lets us parse floats. 
+            // If invalid e.g. `12.34.56` punt to rust's String.parse<f64> and let it error
+            if c.is_numeric() || c == &'.' {
                 n.push(self.advance().unwrap())      // safe, because we just peeked it
             } else {
                 break;
@@ -112,6 +120,22 @@ impl<'a> Lexer<'a> {
         } else {
             otherwise
         }
+    }
+ 
+    fn read_dots(&mut self) -> TokenType {
+        // Special case, because eventually all of these are valid
+        if self.peek() != Some(&'.') {
+            return TokenType::Dot;
+        }
+        self.advance();
+        if self.peek() != Some(&'.') {
+            return TokenType::DoubleDot;
+        }
+        self.advance();
+        if self.peek() != Some(&'.') {
+            return TokenType::Ellipsis;
+        }
+        return TokenType::Illegal(*self.peek().expect("Unexpected end of input"));
     }
 
     // Returns a plain Token, not Option<Token> or Result,
@@ -150,6 +174,7 @@ impl<'a> Lexer<'a> {
             Some('>') => self.two_char_token('=', TokenType::GtEq, TokenType::Gt),
             Some('<') => self.two_char_token('=', TokenType::LtEq, TokenType::Lt),
             Some('!') => self.two_char_token('=', TokenType::NotEq, TokenType::Illegal('!')),
+            Some('.') => self.read_dots(),
 
             Some('"') => {
                 let s = self.read_str();

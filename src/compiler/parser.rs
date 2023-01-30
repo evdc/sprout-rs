@@ -234,6 +234,7 @@ fn get_parse_rule(token: &Token) -> ParseRule {
         TokenType::And      => ParseRule { precedence: 10, prefix_fn: prefix_error, infix_fn: infix },
         TokenType::Or       => ParseRule { precedence: 10, prefix_fn: prefix_error, infix_fn: infix },
         TokenType::Not      => ParseRule { precedence: 10, prefix_fn: unary_prefix, infix_fn: infix_error },
+        TokenType::In       => ParseRule { precedence: 20, prefix_fn: prefix_error, infix_fn: infix },
 
         // Literals
         TokenType::LiteralNum(_)  |
@@ -251,6 +252,9 @@ fn get_parse_rule(token: &Token) -> ParseRule {
 
         // for expressions...?
         TokenType::For      => ParseRule { precedence: 0, prefix_fn: for_expr, infix_fn: infix_error },
+
+        // Spread/rest
+        TokenType::Ellipsis => ParseRule { precedence: 0, prefix_fn: unary_prefix, infix_fn: infix_error },
 
         // Macro-expansion / eval
         TokenType::Quote    => ParseRule { precedence: 0, prefix_fn: quoted, infix_fn: infix_error },

@@ -208,6 +208,15 @@ impl VM {
                         (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
                     }
                 },
+                Op::In => {
+                    let rhs = self.pop()?;
+                    let lhs = self.pop()?;
+                    match (lhs, rhs) {
+                        (Value::Str(l), Value::Str(r)) => self.push(Value::Bool(r.contains(&l))),
+                        (l @ _, Value::Tuple(tpl)) => self.push(Value::Bool(tpl.contains(&l))),
+                        (l @ _, r @ _) => return Err(VMError::TypeError(format!("Invalid operand types for {} in {}", l, r)))
+                    }
+                }
 
                 // This leaves the rvalue on the stack, because assigning is an expression
                 Op::SetGlobal(name) => {
@@ -276,6 +285,18 @@ impl VM {
                         _ => return Err(VMError::TypeError(format!("Can't append to {}", target)))
                     }
                 }
+                // Op::Spread => {
+                //     // TOS is an iterable. Expand it onto the stack, 
+                //     // such that the first element is on the bottom. Inverse of MakeTuple.
+                //     let val = self.pop()?;
+                //     let vals = match val {
+                //         Value::Tuple(tpl) => tpl,
+                //         // TODO: use unicode-segmentation to get intuitive results here
+                //         Value::Str(s) => s.chars().map(|c| Value::Str(c.to_string())).collect(),
+                //         _ => { return Err(VMError::TypeError(format!("{} is not iterable", val))); }
+                //     };
+
+                // }
 
                 Op::Iter(size) => {
                     // TOS is an iterable (currently only strings).

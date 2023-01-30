@@ -12,3 +12,8 @@ pub fn format_vec<T: Display>(v: &Vec<T>) -> String {
     }
     format!("{}]", s)
 }
+
+pub fn is_subsequence<T: PartialEq>(haystack: &[T], needle: &[T]) -> bool {
+    // O(n^2). Knuth-Morris-Pratt is faster, but this will do for now
+    haystack.windows(needle.len()).any(|c| c == needle)
+}

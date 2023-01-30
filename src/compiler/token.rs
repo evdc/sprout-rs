@@ -40,6 +40,9 @@ pub enum TokenType {
     LBrace,
     RBrace,
     Comma,
+    Dot,
+    DoubleDot,
+    Ellipsis,
 
     Eval,
     Quote,

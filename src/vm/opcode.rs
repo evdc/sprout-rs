@@ -25,6 +25,7 @@ pub enum Op {
     GtEq,
     Eq,
     NotEq,
+    In,
 
     SetGlobal(String),  // directly stores the name to get/set
     GetGlobal(String),
