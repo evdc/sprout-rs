@@ -33,6 +33,7 @@ pub enum Op {
 
     Jump(usize),
     JumpIfFalse(usize),
+    MakeTuple(usize),
     Iter(usize),
 
     Call(usize),

@@ -6,6 +6,7 @@ use std::fmt;
 
 use crate::compiler::codegen2::Code;
 use crate::compiler::expression::Expression;
+use crate::utils::format_vec;
 
 
 // todo: can we put Function/String behind a single u64 or ptr for efficiency
@@ -16,6 +17,7 @@ pub enum Value {
     Num(f64),
     Str(String),
     Function(Function),
+    Tuple(Vec<Value>),
     Expression(Box<Expression>)
 }
 
@@ -58,6 +60,7 @@ impl fmt::Display for Value {
             Value::Num(x) => write!(f, "{}", x),
             Value::Str(x) => write!(f, "\"{}\"", x),
             Value::Function(x) => write!(f, "{}", x),
+            Value::Tuple(x) => write!(f, "({})", format_vec(x)),
             Value::Expression(x) => write!(f, "`{}`", x)
         }
     }

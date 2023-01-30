@@ -258,6 +258,14 @@ impl VM {
                     };
                 },
 
+                Op::MakeTuple(size) => {
+                    // Pop n items off the stack and make them into a tuple. 
+                    // First element is on the bottom.
+                    let idx = self.stack.len() - size;
+                    let items = self.stack.drain(idx..).collect();
+                    self.push(Value::Tuple(items))
+                },
+
                 Op::Iter(size) => {
                     // TOS is an iterable (currently only strings).
                     // If it's nonempty, pop its next value and place it above on TOS.

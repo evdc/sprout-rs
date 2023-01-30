@@ -191,6 +191,10 @@ fn value_to_expr(v: Value, line: u32, col: u32) -> Expression {
         Value::Bool(b) => Expression::literal(Token { typ: TokenType::LiteralBool(b), line, col }),
         Value::Num(n) => Expression::literal(Token { typ: TokenType::LiteralNum(n), line, col }),
         Value::Str(s) => Expression::literal(Token { typ: TokenType::LiteralStr(s), line, col }),
+        Value::Tuple(vals) => {
+            let exprs = vals.into_iter().map(|v| value_to_expr(v, line, col)).collect();
+            Expression::tuple(Token { typ: TokenType::LParen, line, col }, exprs)
+        },
 
         // Expression::function expects a Statement for the body, but Value::Function has a Code for the body
         // we don't want to decompile it, so ... Function objs keep a ref to their original expr around somehow??

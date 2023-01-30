@@ -304,8 +304,14 @@ impl Compile for CallExpr {
 // Also debug what happens when you return from a deeply nested scope
 
 impl Compile for TupleExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
-        todo!("yeah no")
+    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+        let mut code = Vec::new();
+        let n = self.items.len();
+        for expr in self.items {
+            code.extend(expr.compile(compiler)?);
+        }
+        code.push(Op::MakeTuple(n));
+        Ok(code)
     }
 }
 
