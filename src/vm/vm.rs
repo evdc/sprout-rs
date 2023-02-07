@@ -42,7 +42,7 @@ impl CallFrame {
 
 pub struct VM {
     stack: Vec<Value>,
-    globals: HashMap<String, Value>
+    globals: HashMap<String, Value>,
 }
 
 impl VM {
@@ -65,6 +65,7 @@ impl VM {
         let mut current_frame = frames.last_mut().unwrap();
 
         loop {
+            // todo: this clone is expensive if ops carry data
             let op = current_frame.function.code[current_frame.ip].clone();
             current_frame.ip += 1;
 
@@ -196,7 +197,9 @@ impl VM {
                     let lhs = self.pop()?;
                     match (lhs, rhs) {
                         (Value::Num(l), Value::Num(r)) => self.push(Value::Bool(l == r)),
-                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} ^ {:?}", l, r)))
+                        (Value::Str(l), Value::Str(r)) => self.push(Value::Bool(l == r)),
+                        (Value::Symbol(l), Value::Symbol(r)) => self.push(Value::Bool(l == r)),
+                        (l, r) => return Err(VMError::TypeError(format!("Invalid operand types for {:?} == {:?}", l, r)))
                     }
                 },
 
@@ -355,6 +358,12 @@ impl VM {
         self.stack.last().ok_or(VMError::StackEmpty)
     }
 }
+
+// pub fn make_expr(values: Vec<Value>) -> Expression {
+//     let head = values.remove(0);
+
+// }
+
 
 //#[test]
 //fn test_vm() {

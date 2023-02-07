@@ -1,11 +1,15 @@
-use std::convert::TryInto;
+use std::fmt;
 
 use super::expression::*;
 use super::token::{Token, TokenType};
+use super::interpolate::interpolate;
 
+use crate::vm::vm::VM;
 use crate::vm::value::Value;
 use crate::vm::value::Function;
 use crate::vm::opcode::Op;
+use crate::vm::symbols::SymbolStore;
+use crate::utils::format_vec;
 
 
 #[derive(Debug)]
@@ -28,12 +32,16 @@ pub struct LocalVar {
 pub struct Compiler {
     // Sub-vectors represent fn scopes
     locals: Vec<Vec<LocalVar>>,
-    scope_depth: i32
+    scope_depth: i32,
+    symbols: SymbolStore,
+    pub vm: VM
 }
 
 impl Compiler {
-    pub fn new() -> Self {
-        Compiler { locals: vec![Vec::new()], scope_depth: -1 }
+    pub fn new(vm: VM) -> Self {
+        let mut c = Compiler { locals: vec![Vec::new()], scope_depth: -1, symbols: SymbolStore::new(), vm };
+        c.populate_symbols();
+        c
     }
 
     pub fn local_count(&self) -> usize {
@@ -110,28 +118,59 @@ impl Compiler {
     fn exit_function_scope(&mut self) -> () {
         self.locals.pop();
     }
+
+    fn populate_symbols(&mut self) -> () {
+        // We have predefined symbols for key operators, 
+        // in addition to those that will be created every time we compile a symbol literal.
+        // basically for every TokenType ... feels like this could be a macro
+        self.symbols.add("+".to_string());
+        self.symbols.add("-".to_string());
+        self.symbols.add("*".to_string());
+        self.symbols.add("/".to_string());
+        self.symbols.add("==".to_string());
+        self.symbols.add("!=".to_string());
+        self.symbols.add("<=".to_string());
+        self.symbols.add(">=".to_string());
+        self.symbols.add("<".to_string());
+        self.symbols.add(">".to_string());
+        self.symbols.add("and".to_string());
+        self.symbols.add("or".to_string());
+        self.symbols.add("not".to_string());
+        self.symbols.add("=".to_string());
+        self.symbols.add("let".to_string());
+        self.symbols.add("if".to_string());
+        self.symbols.add("then".to_string());
+        self.symbols.add("else".to_string());
+        self.symbols.add("->".to_string());
+    }
 }
 
+impl fmt::Display for Compiler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Compiler(depth: {}, locals: {:?})", self.scope_depth, self.locals)
+    }
+}
 
-trait Compile {
-    // Takes ownership of self, an Expression, and destroys it
-    fn compile(self, compiler: &mut Compiler) -> CodeResult;
+// ============================================================================
+
+pub trait Compile {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult;
 }
 
 // todo: we need a new way to carry over line/col information into the VM
 
 impl Compile for LiteralExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
-        let op = match self.token.typ {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
+        let op = match &self.token.typ {
             TokenType::LiteralNull => Op::LoadNull,
             TokenType::LiteralBool(b) => {
-                if b == true {
+                if *b == true {
                     Op::LoadTrue
                 } else {
                     Op::LoadFalse
                 }
             },
-            TokenType::LiteralNum(n) => Op::LoadConstant(Value::Num(n)),
+            TokenType::LiteralNum(n) => Op::LoadConstant(Value::Num(*n)),
             TokenType::LiteralStr(s) => Op::LoadConstant(Value::Str(s.clone())),
 
             // If we try to read a name, first try to find it in the currently defined locals
@@ -144,7 +183,12 @@ impl Compile for LiteralExpr {
                 } else {
                     Op::GetGlobal(name.to_string())
                 }
-            }
+            },
+
+            TokenType::Symbol(s) => {
+                let n = compiler.symbols.get_or_add(s.clone());
+                Op::LoadConstant(Value::Symbol(n))
+            },
 
             _ => return Err(CompileError::CompileError("Unexpected literal token".to_string()))
         };
@@ -153,18 +197,18 @@ impl Compile for LiteralExpr {
 }
 
 impl Compile for AssignExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         // validate assignment target - currently only a name literal
         // eventually allow a tuple expr for destructuring
-        if let Expression::Literal(expr) = *self.target {
-            if let TokenType::Name(name) = expr.token.typ {
+        if let Expression::Literal(expr) = &*self.target {
+            if let TokenType::Name(name) = &expr.token.typ {
                 let mut code = self.value.compile(compiler)?;
                 // Assignments at scope depth 0 (top-level) are globals
                 // Otherwise, they're treated as locals and simply left on the stack
                 if compiler.scope_depth == 0 {
                     code.push(Op::SetGlobal(name.clone()));
                 } else {
-                    compiler.add_local(name);
+                    compiler.add_local(name.to_string());
                 }
                 return Ok(code)
             } else {
@@ -177,7 +221,7 @@ impl Compile for AssignExpr {
 }
 
 impl Compile for UnaryExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, _compiler: &mut Compiler) -> CodeResult {
         let mut code = self.value.compile(_compiler)?;
         let op = match self.token.typ {
             TokenType::Minus => Op::Negate,
@@ -192,7 +236,7 @@ impl Compile for UnaryExpr {
 }
 
 impl Compile for BinaryExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, _compiler: &mut Compiler) -> CodeResult {
         let mut code = self.left.compile(_compiler)?;
         let right_code = self.right.compile(_compiler)?;
         let op = match self.token.typ {
@@ -232,7 +276,7 @@ impl Compile for BinaryExpr {
 }
 
 impl Compile for ConditionalExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, _compiler: &mut Compiler) -> CodeResult {
         // We can avoid patching jumps here by determining their lengths ahead of time.
         let mut code = self.condition_expr.compile(_compiler)?;
 
@@ -241,7 +285,7 @@ impl Compile for ConditionalExpr {
         code.push(Op::Pop);
         code.extend(true_code);
 
-        if let Some(false_branch) = *self.false_expr {
+        if let Some(false_branch) = &*self.false_expr {
             let false_code = false_branch.compile(_compiler)?;
             // append an absolute jump to the end of the true branch
             code.push(Op::Jump(false_code.len() + 1));
@@ -259,16 +303,16 @@ impl Compile for ConditionalExpr {
 }
 
 impl Compile for FunctionExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         let arity = self.arguments.len();
         
         // We enter a new scope for the body and define the arguments as local variables available in that scope.
         // BUG: we aren't treating the locals as being at the same depth as the arguments w/ a block
         compiler.enter_function_scope();
-        for arg in self.arguments {
+        for arg in &self.arguments {
             // issue is that here we force add_local even when at scope depth 0 
             // but when we see a name ref within the block body, we treat it as global if at depth 0
-            compiler.add_local(arg);
+            compiler.add_local(arg.to_string());
         }
         compiler.scope_depth -= 1;
 
@@ -279,7 +323,7 @@ impl Compile for FunctionExpr {
         let mut code = self.body.compile(compiler)?;
         code.push(Op::Return);
         compiler.exit_function_scope();
-        let func = Value::Function(Function { code, arity, name: self.name });
+        let func = Value::Function(Function { code, arity, name: self.name.clone() });
         
         // The only code that runs *when the function is defined* (not called)
         // is just loading the Function Value onto the stack.
@@ -288,12 +332,12 @@ impl Compile for FunctionExpr {
 }
 
 impl Compile for CallExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         let arity = self.arguments.len();
         // Compile the expression for the callee
         let mut code = self.callee.compile(compiler)?;
         // Compile the expressions for the arguments. TODO this could be more rust idiomatic right
-        for arg_expr in self.arguments {
+        for arg_expr in &self.arguments {
             code.extend(arg_expr.compile(compiler)?);
         }
         code.push(Op::Call(arity));
@@ -305,10 +349,10 @@ impl Compile for CallExpr {
 // Also debug what happens when you return from a deeply nested scope
 
 impl Compile for TupleExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         let mut code = Vec::new();
         let n = self.items.len();
-        for expr in self.items {
+        for expr in &self.items {
             code.extend(expr.compile(compiler)?);
         }
         code.push(Op::MakeTuple(n));
@@ -317,7 +361,7 @@ impl Compile for TupleExpr {
 }
 
 impl Compile for ForExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         // Options: 1) Python-style list comp, build an anon fn and call it,
         // 2) add Op::Map etc at the low level
 
@@ -344,18 +388,87 @@ impl Compile for ForExpr {
 }
 
 impl Compile for QuotedExpr {
-    fn compile(self, _compiler: &mut Compiler) -> CodeResult {
-        let val = Value::Expression(self.subexpr);
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
+        // TODO: So should we perform interpolation/unquoting in here?
+        // let mut subexp = self.subexpr.clone();
+        // interpolate(&mut subexp, compiler);
+        let val = Value::Expression(self.subexpr.clone());
         let op = Op::LoadConstant(val);
         Ok(vec![op])
     }
 }
 
+impl Compile for UnquoteExpr {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
+        Err(CompileError::CompileError("Shouldn't be compiling an unquote outside a quoted expr".to_string()))
+    }
+}
+
+impl Compile for MacroCallExpr {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
+        // Compile code to call the macro with arguments wrapped in Value::Expression,
+        let mut code = self.callee.compile(compiler)?;
+        let arity = self.arguments.len();
+        for arg in &self.arguments {
+            code.push(Op::LoadConstant(Value::Expression(Box::new(arg.clone()))));
+        }
+        code.push(Op::Call(arity));
+        code.push(Op::Return);
+        println!("EVAL: Will run: {:?}", code);
+
+        // Then run that call immediately at compile time.
+        // TODO: the QuotedExpr body of the macro fn still compiles prior to this call
+        // so we don't want to do interpolation at "macro-definition" time we want to do it at "macro-invocation" time
+        // so unless it is defined as an opcode ... we need to somehow like, jump out of call context into the compiler ??
+
+        // Unless macros can't do calling but can only do interpolation. Or something.
+
+        let func = Function { code, arity: 0, name: "<macro>".to_string() };
+        let res = compiler.vm.run(func).unwrap();
+        // result should be a Value::Expression. Now compile it in
+        let expr = match res {
+            Value::Expression(exp) => *exp,
+            _ => { return Err(CompileError::CompileError("Expected macro to return an Expression".to_string())); }
+        };
+        // BY the time we get here, we SHOULD have no more $s left in the resulting expr.
+        // The macro has to perform interpolation during its call. 
+        let code = expr.compile(compiler)?;
+        Ok(code)
+    }
+}
+
+
+// impl Compile for UnquoteExpr {
+//     fn compile(self, compiler: &mut Compiler) -> CodeResult {
+//         // Compile inner expr in the compiler's current scope
+//         println!("EVAL: Compile {} in state {}", self.subexpr, compiler);
+//         let mut code = self.subexpr.compile(compiler)?;
+//         code.push(Op::Return);
+//         println!("EVAL: Will run: {:?}", code);
+//         let func = Function { code, arity: 0, name: "<comptime>".to_string() };
+
+//         let res = compiler.vm.run(func).unwrap();   // todo error handling
+//         // The result of compilation is loading that result value as a constant ??
+//         // todo: make sure we actually pull out the inner-expr appropriately?
+
+//         // what we need is not necessarily a round trip via value_to_expr
+//         // we want value -> (opcodes which produce that value)??
+//         // which we COULD get by turning it into an expr and compiling ... but maybe don't have to
+//         println!("EVAL: Compile result: {}", res);
+//         let code = match res {
+//             Value::Expression(expr) => expr.compile(compiler)?,
+//             val @ _ => vec![Op::LoadConstant(val)]
+//         };
+//         // let code = vec![Op::LoadConstant(res)];
+//         Ok(code)
+//     }
+// }
+
 impl Compile for BlockExpr {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {        
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {        
         compiler.enter_scope();
         let mut code = Vec::new();
-        for expr in self.exprs.into_iter() {
+        for expr in &self.exprs {
             code.extend(expr.compile(compiler)?);
         }
         code = compiler.exit_scope(code);
@@ -366,7 +479,7 @@ impl Compile for BlockExpr {
 // === Overall impl. Could use a macro here ===
 
 impl Compile for Expression {
-    fn compile(self, compiler: &mut Compiler) -> CodeResult {
+    fn compile(&self, compiler: &mut Compiler) -> CodeResult {
         match self {
             Expression::Literal(expr) => expr.compile(compiler),
             Expression::Unary(expr)   => expr.compile(compiler),
@@ -375,10 +488,12 @@ impl Compile for Expression {
             Expression::Conditional(expr)   => expr.compile(compiler),
             Expression::Function(expr)      => expr.compile(compiler),
             Expression::Call(expr)    => expr.compile(compiler),
+            Expression::MacroCall(expr) => expr.compile(compiler),
             Expression::Tuple(expr)   => expr.compile(compiler),
             Expression::For_(expr)     => expr.compile(compiler),
             Expression::Block(expr)   => expr.compile(compiler),
             Expression::Quoted(expr)  => expr.compile(compiler),
+            Expression::Unquote(expr) => expr.compile(compiler),
             Expression::Return(expr)  => expr.compile(compiler)
         }
     }

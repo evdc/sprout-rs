@@ -46,6 +46,7 @@ pub enum TokenType {
 
     Eval,
     Quote,
+    Symbol(String),
 
     Semicolon,
     Newline,

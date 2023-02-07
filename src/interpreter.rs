@@ -14,24 +14,26 @@ pub enum AnyErr {
     VMError(VMError)
 }
 
+// if the Compiler really needs to hold a ref to or own a VM 
+// instead of just having it passed in to compile calls, could use an Rc
+// overhead's pretty low, it's only inc/decref'd basically once
 pub struct Interpreter {
-    vm: VM,
     compiler: Compiler,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter { vm: VM::new(), compiler: Compiler::new() }
+        Interpreter { compiler: Compiler::new(VM::new()) }
     }
 
     pub fn run(&mut self, source: &str) -> Result<Value, AnyErr> {
-        let block = Parser::parse(source, &mut self.compiler, &mut self.vm).map_err(AnyErr::ParseError)?;
+        let block = Parser::parse(source).map_err(AnyErr::ParseError)?;
         
         let function = self.compiler.compile(block).map_err(AnyErr::CompileError)?;
     
         println!("Code: {:?}", function.code);
     
-        let res = self.vm.run(function).map_err(AnyErr::VMError)?;
+        let res = self.compiler.vm.run(function).map_err(AnyErr::VMError)?;
         // let res = Value::Null;
         Ok(res)
     }

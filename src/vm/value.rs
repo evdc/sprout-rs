@@ -18,6 +18,7 @@ pub enum Value {
     Str(String),
     Function(Function),
     Tuple(Vec<Value>),
+    Symbol(u32),
     Expression(Box<Expression>)
 }
 
@@ -59,6 +60,7 @@ impl fmt::Display for Value {
             Value::Bool(x) => write!(f, "{}", x),
             Value::Num(x) => write!(f, "{}", x),
             Value::Str(x) => write!(f, "\"{}\"", x),
+            Value::Symbol(x) => write!(f, "#{}", x),
             Value::Function(x) => write!(f, "{}", x),
             Value::Tuple(x) => write!(f, "({})", format_vec(x)),
             Value::Expression(x) => write!(f, "`{}`", x)

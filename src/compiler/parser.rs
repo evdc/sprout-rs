@@ -2,8 +2,6 @@ use crate::compiler::lexer::Lexer;
 use crate::compiler::token::{Token, TokenType};
 use crate::compiler::expression::*;
 use crate::compiler::codegen2::Compiler;
-use crate::vm::vm::VM;
-use crate::vm::value::Value;
 
 type Precedence = i16;
 type ParseResult = Result<Expression, ParseError>;
@@ -159,6 +157,19 @@ fn call_expr(parser: &mut Parser, token: Token, left: Expression, _precedence: P
     Ok(Expression::call(token, left, arguments))
 }
 
+fn macro_call(parser: &mut Parser, token: Token, left: Expression, _precedence: Precedence) -> ParseResult {
+    // Similar to Call, except 
+    parser.consume(TokenType::LParen)?;
+    let mut arguments = Vec::new();
+    while !parser.check(&TokenType::EOF) {
+        let expr = parser.expression(0)?;
+        arguments.push(expr);
+        if !parser.advance_if(&TokenType::Comma) { break };
+    }
+    parser.consume(TokenType::RParen)?;
+    Ok(Expression::macro_call(token, left, arguments)) 
+}
+
 fn block_expr(parser: &mut Parser, token: Token) -> ParseResult {
     // Called on { in prefix position. (Which will be an issue if we want to use that for eg set/map literals.)
     // But allows us to treat blocks as expressions. Eg `let foo = { let bar = 3; bar + 4 };` as in Rust.
@@ -179,39 +190,8 @@ fn return_expr(parser: &mut Parser, token: Token) -> ParseResult {
 
 fn eval_expr(parser: &mut Parser, token: Token) -> ParseResult {
     let subexpr = parser.expression(100)?;
-    println!("EVAL: Will evaluate: {:#?}", subexpr);
-    let code = parser.compiler.compile(subexpr).unwrap();   // todo err handler
-    println!("EVAL: Will run: {:?}", code);
-    let value = parser.vm.run(code).unwrap();              // todo err handler
-    
-    // Now convert the result back into an Expression
-    // Annoyingly for now we just use the line/col of the $ token not the inner-expr
-    let result_expr = value_to_expr(value, token.line, token.col);
-    Ok(result_expr)
+    Ok(Expression::unquote(token, subexpr))
 }
-
-fn value_to_expr(v: Value, line: u32, col: u32) -> Expression {
-    // So we turn the value *back* into an expression (only to eval it back into a value later!)
-    match v {
-        Value::Null => Expression::literal(Token { typ: TokenType::LiteralNull, line, col }),
-        Value::Bool(b) => Expression::literal(Token { typ: TokenType::LiteralBool(b), line, col }),
-        Value::Num(n) => Expression::literal(Token { typ: TokenType::LiteralNum(n), line, col }),
-        Value::Str(s) => Expression::literal(Token { typ: TokenType::LiteralStr(s), line, col }),
-        Value::Tuple(vals) => {
-            let exprs = vals.into_iter().map(|v| value_to_expr(v, line, col)).collect();
-            Expression::tuple(Token { typ: TokenType::LParen, line, col }, exprs)
-        },
-
-        // Expression::function expects a Statement for the body, but Value::Function has a Code for the body
-        // we don't want to decompile it, so ... Function objs keep a ref to their original expr around somehow??
-        // maybe if we did eval-macro in Compiler not Parser, we just use the resulting Function's code?
-        Value::Function(_f) => todo!("need to figure this out"),
-
-        // If it's a quoted expr then just pull out the inner expr ?
-        Value::Expression(expr) => *expr
-    }
-}
-
 
 fn get_parse_rule(token: &Token) -> ParseRule {
     match token.typ {
@@ -258,7 +238,8 @@ fn get_parse_rule(token: &Token) -> ParseRule {
 
         // Macro-expansion / eval
         TokenType::Quote    => ParseRule { precedence: 0, prefix_fn: quoted, infix_fn: infix_error },
-        TokenType::Eval     => ParseRule { precedence: 0, prefix_fn: eval_expr, infix_fn: infix_error },
+        TokenType::Eval     => ParseRule { precedence: 100, prefix_fn: eval_expr, infix_fn: macro_call },
+        TokenType::Symbol(_)     => ParseRule { precedence: 100, prefix_fn: literal, infix_fn: infix_error },
 
         // Grouping and/or call
         TokenType::LParen   => ParseRule { precedence: 100, prefix_fn: grouping, infix_fn: call_expr },
@@ -285,26 +266,24 @@ pub struct Parser<'a> {
 
     // also borows a compiler and VM in order to compile-time execute
     // Compiler and VM ought to outlive the Parser
-    pub compiler: &'a mut Compiler,
-    pub vm: &'a mut VM
+    // pub compiler: &'a mut Compiler,
+    // pub vm: &'a mut VM
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: &'a mut Lexer<'a>, compiler: &'a mut Compiler, vm: &'a mut VM) -> Parser<'a> {
+    pub fn new(lexer: &'a mut Lexer<'a>) -> Parser<'a> {
         // We init the parser with a throwaway first token, then immediately advance & discard it.
         let mut p = Parser {
             tokens: lexer,
             current_token: Token { typ: TokenType::Illegal('\0') , line: 0, col: 0 },
-            compiler,
-            vm
         };
         p.advance();
         p
     }
 
-    pub fn parse(input: &str, compiler: &mut Compiler, vm: &mut VM) -> Result<Expression, ParseError> {
+    pub fn parse(input: &str) -> Result<Expression, ParseError> {
         let mut l = Lexer::new(input);
-        let mut p = Parser::new(&mut l, compiler, vm);
+        let mut p = Parser::new(&mut l);
         let first_tok = p.current_token.clone();
 
         // Parse a sequence of expressions. But don't require a closing } at toplevel.

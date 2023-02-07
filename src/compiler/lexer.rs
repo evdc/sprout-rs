@@ -138,6 +138,17 @@ impl<'a> Lexer<'a> {
         return TokenType::Illegal(*self.peek().expect("Unexpected end of input"));
     }
 
+    fn read_symbol(&mut self) -> TokenType {
+        let mut s = String::new();
+        while let Some(c) = self.peek() {
+            if c.is_whitespace() {
+                break;
+            }
+            s.push(self.advance().expect("Unterminated symbol"));
+        }
+        TokenType::Symbol(s)
+    }
+
     // Returns a plain Token, not Option<Token> or Result,
     // leaving handling Token::EOF or Token::Illegal to the parser
     pub fn next_token(&mut self) -> Token {
@@ -179,6 +190,10 @@ impl<'a> Lexer<'a> {
             Some('"') => {
                 let s = self.read_str();
                 TokenType::LiteralStr(s)
+            },
+
+            Some('#') => {
+                self.read_symbol()
             },
 
             Some(ch) => {

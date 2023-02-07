@@ -60,6 +60,13 @@ pub struct CallExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MacroCallExpr {
+    pub token: Token,
+    pub callee: Box<Expression>,
+    pub arguments: Vec<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct QuotedExpr {
     pub token: Token,
     pub subexpr: Box<Expression>
@@ -80,6 +87,12 @@ pub struct ForExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct UnquoteExpr {
+    pub token: Token,
+    pub subexpr: Box<Expression>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpr),
     Unary(UnaryExpr),
@@ -90,6 +103,8 @@ pub enum Expression {
     Call(CallExpr),
     Tuple(TupleExpr),
     Quoted(QuotedExpr),
+    Unquote(UnquoteExpr),
+    MacroCall(MacroCallExpr),
     Block(BlockExpr),
     For_(ForExpr),
     // we can reuse the shape of a unary here ??
@@ -142,6 +157,10 @@ impl Expression {
         Expression::Call(CallExpr { token, callee: Box::new(callee), arguments})
     }
 
+    pub fn macro_call(token: Token, callee: Expression, arguments: Vec<Expression>) -> Self {
+        Expression::MacroCall(MacroCallExpr { token, callee: Box::new(callee), arguments})
+    }
+
     pub fn tuple(token: Token, items: Vec<Expression>) -> Self {
         Expression::Tuple(TupleExpr {token, items})
     }
@@ -152,6 +171,10 @@ impl Expression {
 
     pub fn quoted(token: Token, subexpr: Expression) -> Self {
         Expression::Quoted(QuotedExpr { token, subexpr: Box::new(subexpr)})
+    }
+
+    pub fn unquote(token: Token, subexpr: Expression) -> Self {
+        Expression::Unquote(UnquoteExpr { token, subexpr: Box::new(subexpr) })
     }
 
     pub fn block(token: Token, exprs: Vec<Expression>) -> Self {
@@ -174,9 +197,11 @@ impl fmt::Display for Expression {
             Expression::Conditional(expr) => write!(f, "{:#?}", expr),
             Expression::Function(expr) => write!(f, "{:#?}", expr),
             Expression::Call(expr) => write!(f, "{:#?}", expr),
+            Expression::MacroCall(expr) => write!(f, "{:#?}", expr),
             Expression::Tuple(expr) => write!(f, "{:#?}", expr),
             Expression::For_(expr) => write!(f, "for {} in {} do {}", expr.target, expr.iterable, expr.body),
             Expression::Quoted(expr) => write!(f, "{:#?}", expr),
+            Expression::Unquote(expr) => write!(f, "${:#?}", expr),
             Expression::Block(expr) => write!(f, "{:#?}", expr),
             Expression::Return(expr) => write!(f, "{:#?}", expr)
         }
